@@ -19,6 +19,7 @@ import { showToast } from '../utils/events';
 import { triggerHaptic } from '../utils/haptics';
 import { playUISound } from '../utils/sound';
 import { analyzeText } from '../utils/spanglishAnalysis';
+import { sanitizeInput } from '../utils/security'; // Phase 5: Security
 
 interface ChatInterfaceProps {
   initialMessages?: Message[];
@@ -112,11 +113,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   const handleSend = async (forcedPrompt?: string, forcedMode?: CouncilMode) => {
-    const text = forcedPrompt || input.trim();
+    const rawText = forcedPrompt || input.trim();
     const mode = forcedMode || activeMode;
     
-    if (!text && attachments.length === 0) return;
+    if (!rawText && attachments.length === 0) return;
     
+    // Phase 5: Security Sanitization
+    const text = sanitizeInput(rawText);
+
     const userMsg: Message = { 
         id: Date.now().toString(), 
         text, 
@@ -137,7 +141,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         let response;
         const systemPrompt = customSystemInstruction || activeMember.systemPrompt;
         
-        // Build Neural Index for the model
         const vaultAwareness = vaultItems?.map(v => 
             `- ${v.title} (${v.category})${v.isPrivate ? ` [PRIVATE: ${v.ownerId}]` : ''}`
         ).join('\n') || "Vault empty.";
@@ -159,7 +162,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         if (response) {
             const modelMsg: Message = { 
                 id: (Date.now()+1).toString(), 
-                text: response.text, 
+                text: sanitizeInput(response.text), // Sanitize AI output as well
                 sender: 'gemini', 
                 timestamp: Date.now(), 
                 memberId: initialMemberId as CouncilMemberId,
@@ -222,7 +225,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   return (
-    <div className="relative h-full flex flex-col bg-black text-white overflow-hidden">
+    <div className="relative h-full flex flex-col bg-black text-white overflow-hidden animate-fade-in">
         <div className="flex items-center justify-between px-4 py-3 bg-[#0a0a0a] border-b border-white/5 shrink-0 z-20">
             <div className="flex items-center gap-2">
                 {onBack ? (

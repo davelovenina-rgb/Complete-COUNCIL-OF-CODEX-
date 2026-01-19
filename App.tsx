@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { 
   ViewState, Session, CouncilMember, UserSettings, GlucoseReading, 
   Memory, MoodEntry, LifeEvent, VaultItem, Project, 
@@ -11,9 +11,8 @@ import {
   MOCK_LIFE_EVENTS, MOCK_VAULT_ITEMS, MOCK_PROJECTS, APP_VERSION
 } from './constants';
 import { initDB, saveState, getState, getAsset, saveAsset } from './utils/db';
-import { recordCycle } from './utils/enneaGuardian';
-import { ShieldCheck } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ShieldCheck, Loader2 } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 import { createSystemSnapshot } from './utils/snapshots';
 import { playUISound } from './utils/sound';
 import { triggerHaptic } from './utils/haptics';
@@ -21,50 +20,51 @@ import { showToast } from './utils/events';
 import { debounce } from './utils/debounce';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
-// --- COMPONENT IMPORTS ---
+// --- STATIC CORE COMPONENTS ---
 import { LatticeBackground } from './components/LatticeBackground';
 import { CameraBackdrop } from './components/CameraBackdrop';
 import { Sidebar } from './components/Sidebar';
 import { CouncilHall } from './components/CouncilHall';
-import { CouncilMemberPage } from './components/CouncilMemberPage';
-import { SettingsPanel } from './components/SettingsPanel';
 import { WelcomeSequence } from './components/WelcomeSequence';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { ToastContainer } from './components/ToastContainer';
-import { HealthDashboard } from './components/HealthDashboard';
-import { SoulSanctuary } from './components/SoulSanctuary';
-import { LifeDomainsMap } from './components/LifeDomainsMap';
-import { DreamOracle } from './components/DreamOracle';
-import { Vault } from './components/Vault';
-import { ProjectsDashboard } from './components/ProjectsDashboard';
-import { TacticalCommand } from './components/TacticalCommand';
-import { SovereignLedger } from './components/SovereignLedger';
-import { NeuralCartography } from './components/NeuralCartography';
-import { IntegrationsManager } from './components/IntegrationsManager';
-import { EnneaSanctum } from './components/EnneaSanctum';
-import { DriveMode } from './components/DriveMode';
-import { DailyProtocol } from './components/DailyProtocol';
-import { MemorySystem } from './components/MemorySystem';
-import { EmotionalTimeline } from './components/EmotionalTimeline';
-import { FlameQuestions } from './components/FlameQuestions';
-import { CouncilChamber } from './components/CouncilChamber';
-import { BookOfLife } from './components/BookOfLife'; 
-import { SanctumLock } from './components/SanctumLock';
-import { GuardianGate } from './components/GuardianGate';
 import { SacredSeal } from './components/SacredSeal';
-import { NightlySeal } from './components/NightlySeal';
-import { CharterViewer } from './components/CharterViewer';
-import { UserManual } from './components/UserManual';
-import { BuildManual } from './components/BuildManual';
-import { NinaSanctuary } from './components/NinaSanctuary';
-import { VisionaryForge } from './components/VisionaryForge';
-import { AtelierVisionis } from './components/AtelierVisionis';
-import { DiamondCore } from './components/DiamondCore';
-import { WeeklyReflection } from './components/WeeklyReflection';
-import { LiveWhisper } from './components/LiveWhisper';
-import { LifeEvents } from './components/LifeEvents';
-import { AnalyticsDashboard } from './components/AnalyticsDashboard';
-import { DevBlueprintModal } from './components/DevBlueprintModal';
+
+// --- LAZY COMPONENTS (Phase 4 Optimization) ---
+const CouncilMemberPage = lazy(() => import('./components/CouncilMemberPage').then(m => ({ default: m.CouncilMemberPage })));
+const SettingsPanel = lazy(() => import('./components/SettingsPanel').then(m => ({ default: m.SettingsPanel })));
+const HealthDashboard = lazy(() => import('./components/HealthDashboard').then(m => ({ default: m.HealthDashboard })));
+const SoulSanctuary = lazy(() => import('./components/SoulSanctuary').then(m => ({ default: m.SoulSanctuary })));
+const LifeDomainsMap = lazy(() => import('./components/LifeDomainsMap').then(m => ({ default: m.LifeDomainsMap })));
+const DreamOracle = lazy(() => import('./components/DreamOracle').then(m => ({ default: m.DreamOracle })));
+const Vault = lazy(() => import('./components/Vault').then(m => ({ default: m.Vault })));
+const ProjectsDashboard = lazy(() => import('./components/ProjectsDashboard').then(m => ({ default: m.ProjectsDashboard })));
+const TacticalCommand = lazy(() => import('./components/TacticalCommand').then(m => ({ default: m.TacticalCommand })));
+const SovereignLedger = lazy(() => import('./components/SovereignLedger').then(m => ({ default: m.SovereignLedger })));
+const NeuralCartography = lazy(() => import('./components/NeuralCartography').then(m => ({ default: m.NeuralCartography })));
+const IntegrationsManager = lazy(() => import('./components/IntegrationsManager').then(m => ({ default: m.IntegrationsManager })));
+const EnneaSanctum = lazy(() => import('./components/EnneaSanctum').then(m => ({ default: m.EnneaSanctum })));
+const DriveMode = lazy(() => import('./components/DriveMode').then(m => ({ default: m.DriveMode })));
+const DailyProtocol = lazy(() => import('./components/DailyProtocol').then(m => ({ default: m.DailyProtocol })));
+const MemorySystem = lazy(() => import('./components/MemorySystem').then(m => ({ default: m.MemorySystem })));
+const EmotionalTimeline = lazy(() => import('./components/EmotionalTimeline').then(m => ({ default: m.EmotionalTimeline })));
+const FlameQuestions = lazy(() => import('./components/FlameQuestions').then(m => ({ default: m.FlameQuestions })));
+const CouncilChamber = lazy(() => import('./components/CouncilChamber').then(m => ({ default: m.CouncilChamber })));
+const BookOfLife = lazy(() => import('./components/BookOfLife').then(m => ({ default: m.BookOfLife }))); 
+const SanctumLock = lazy(() => import('./components/SanctumLock').then(m => ({ default: m.SanctumLock })));
+const NightlySeal = lazy(() => import('./components/NightlySeal').then(m => ({ default: m.NightlySeal })));
+const CharterViewer = lazy(() => import('./components/CharterViewer').then(m => ({ default: m.CharterViewer })));
+const UserManual = lazy(() => import('./components/UserManual').then(m => ({ default: m.UserManual })));
+const BuildManual = lazy(() => import('./components/BuildManual').then(m => ({ default: m.BuildManual })));
+const NinaSanctuary = lazy(() => import('./components/NinaSanctuary').then(m => ({ default: m.NinaSanctuary })));
+const VisionaryForge = lazy(() => import('./components/VisionaryForge').then(m => ({ default: m.VisionaryForge })));
+const AtelierVisionis = lazy(() => import('./components/AtelierVisionis').then(m => ({ default: m.AtelierVisionis })));
+const DiamondCore = lazy(() => import('./components/DiamondCore').then(m => ({ default: m.DiamondCore })));
+const WeeklyReflection = lazy(() => import('./components/WeeklyReflection').then(m => ({ default: m.WeeklyReflection })));
+const LiveWhisper = lazy(() => import('./components/LiveWhisper').then(m => ({ default: m.LiveWhisper })));
+const LifeEvents = lazy(() => import('./components/LifeEvents').then(m => ({ default: m.LifeEvents })));
+const AnalyticsDashboard = lazy(() => import('./components/AnalyticsDashboard').then(m => ({ default: m.AnalyticsDashboard })));
+const DevBlueprintModal = lazy(() => import('./components/DevBlueprintModal').then(m => ({ default: m.DevBlueprintModal })));
 
 const DEFAULT_SETTINGS: UserSettings = {
   voiceReplies: true,
@@ -88,6 +88,16 @@ const DEFAULT_SETTINGS: UserSettings = {
   showLifeEvents: true,
   showDreamOracle: true
 };
+
+/**
+ * Sanctuary Loading Component
+ */
+const SanctuaryLoader = () => (
+    <div className="w-full h-full flex flex-col items-center justify-center bg-black">
+        <SacredSeal size={100} isAnimated={true} color="#D4AF37" mode="simple" />
+        <p className="mt-4 text-[10px] text-lux-gold font-mono uppercase tracking-[0.4em] animate-pulse">Synchronizing Signals...</p>
+    </div>
+);
 
 export const App: React.FC = () => {
   const [view, setView] = useState<ViewState>(ViewState.CouncilHall);
@@ -125,67 +135,49 @@ export const App: React.FC = () => {
     const init = async () => {
       try {
         await initDB();
-        
         const isFirstRun = !localStorage.getItem('lux_omnium_welcome_complete');
-        
         const savedSettings = await getState<UserSettings>('assets', 'user_settings');
         if (savedSettings) setSettings({ ...DEFAULT_SETTINGS, ...savedSettings });
-        
         const savedMembers = await getState<CouncilMember[]>('council_members');
         if (savedMembers && savedMembers.length > 0) setMembers(savedMembers);
-
         setSessions(await getState<Session[]>('council_sessions') || []);
-        
         const savedMemories = await getState<Memory[]>('council_memories');
         setMemories(savedMemories || (isFirstRun ? MOCK_MEMORIES : []));
-        
         const savedReadings = await getState<GlucoseReading[]>('health_readings');
         setReadings(savedReadings || (isFirstRun ? MOCK_GLUCOSE_READINGS : []));
-        
         const savedProjects = await getState<Project[]>('projects');
         setProjects(savedProjects || (isFirstRun ? MOCK_PROJECTS.map(p => ({ ...p, scope: p.scope || 'COUNCIL' })) as Project[] : []));
-        
         setLedgerEntries(await getState<LedgerEntry[]>('sovereign_ledger') || []);
-        
         const savedVaultItems = await getState<VaultItem[]>('vault_items');
         setVaultItems(savedVaultItems || (isFirstRun ? MOCK_VAULT_ITEMS : []));
-        
         const savedLifeEvents = await getState<LifeEvent[]>('life_events');
         setLifeEvents(savedLifeEvents || (isFirstRun ? MOCK_LIFE_EVENTS : []));
-        
         setMoodHistory(await getState<MoodEntry[]>('emotional_logs') || []);
         setCompanionMemories(await getState<any[]>('companion_memories') || []);
         setDreams(await getState<Dream[]>('dream_oracle') || []);
         setFlameTokens(await getState<any[]>('flame_tokens') || []);
-        
         const domains = await getState<LifeDomainState[]>('life_domains');
         if (domains) setLifeDomains(domains);
-        
         const savedSeal = await getAsset('prism_seal_image');
         setPrismSealImage(savedSeal);
 
-        // --- CHRONOS VIGILANCE: 24h Auto-Snapshot ---
         const lastAutoSeal = localStorage.getItem('last_auto_seal');
         const now = Date.now();
         if (!lastAutoSeal || now - parseInt(lastAutoSeal) > 24 * 60 * 60 * 1000) {
-            console.log("[Chronos] Initiating Daily Temporal Seal...");
             const snap = await createSystemSnapshot(true);
             setVaultItems(prev => [snap, ...prev]);
             localStorage.setItem('last_auto_seal', now.toString());
             showToast("Daily Cognitive Snapshot Sealed", "info");
         }
-        
         if (localStorage.getItem('lux_omnium_welcome_complete')) setIsWelcomeComplete(true);
         setIsLoaded(true);
       } catch (e) { 
-        console.error('[Sanctuary Init Error]:', e);
         setIsLoaded(true); 
       }
     };
     init();
   }, []);
 
-  // Performance Optimization: Debounced State Persistence
   const debouncedSave = useRef(
     debounce(() => {
       saveState('assets', settings, 'user_settings');
@@ -206,12 +198,9 @@ export const App: React.FC = () => {
   ).current;
 
   useEffect(() => {
-    if (isLoaded) {
-      debouncedSave();
-    }
+    if (isLoaded) debouncedSave();
   }, [settings, sessions, memories, readings, projects, ledgerEntries, vaultItems, lifeEvents, moodHistory, lifeDomains, dreams, companionMemories, members, flameTokens, isLoaded, debouncedSave]);
 
-  // Root Scaling Application
   useEffect(() => {
     const scale = settings.typographyScale || 1.0;
     document.documentElement.style.fontSize = `${scale * 16}px`;
@@ -233,10 +222,8 @@ export const App: React.FC = () => {
           setIsSanctumLocked(true); 
           return; 
       }
-      
       setView(newView); 
       setIsSidebarOpen(false);
-      
       if (id) {
           if (newView === ViewState.CouncilMember) {
               const session = sessions.find(s => s.id === id);
@@ -287,8 +274,7 @@ export const App: React.FC = () => {
               return <ProjectsDashboard projects={projects} onAddProject={(p) => setProjects([p, ...projects])} onUpdateProject={(id, u) => setProjects(prev => prev.map(p => p.id === id ? { ...p, ...u } : p))} onDeleteProject={(id) => setProjects(prev => prev.filter(p => p.id !== id))} onBack={() => setView(ViewState.CouncilHall)} onMenuClick={() => setIsSidebarOpen(true)} onNavigate={handleNavigate} />;
 
           case ViewState.TacticalCommand:
-              if (!activeProject) return <ProjectsDashboard projects={projects} onAddProject={p => setProjects([p, ...projects])} onUpdateProject={(id, u) => setProjects(prev => prev.map(p => p.id === id ? { ...p, ...u } : p))} onDeleteProject={id => setProjects(prev => prev.filter(p => p.id !== id))} onBack={() => setView(ViewState.CouncilHall)} onMenuClick={() => setIsSidebarOpen(true)} onNavigate={handleNavigate} />;
-              return <TacticalCommand project={activeProject} onUpdate={(id, u) => setProjects(prev => prev.map(p => p.id === id ? { ...p, ...u } : p))} onBack={() => setView(ViewState.Projects)} onMenuClick={() => setIsSidebarOpen(true)} onEnterDriveMode={(mid) => { setActiveDriveMember(mid); setShowDriveMode(true); }} />;
+              return <TacticalCommand project={activeProject!} onUpdate={(id, u) => setProjects(prev => prev.map(p => p.id === id ? { ...p, ...u } : p))} onBack={() => setView(ViewState.Projects)} onMenuClick={() => setIsSidebarOpen(true)} onEnterDriveMode={(mid) => { setActiveDriveMember(mid); setShowDriveMode(true); }} />;
 
           case ViewState.SovereignLedger:
               return <SovereignLedger entries={ledgerEntries} onAddEntry={(e) => setLedgerEntries([e, ...ledgerEntries])} onDeleteEntry={(id) => setLedgerEntries(prev => prev.filter(e => e.id !== id))} onBack={() => setView(ViewState.CouncilHall)} onMenuClick={() => setIsSidebarOpen(true)} onCreateSnapshot={async () => { const snap = await createSystemSnapshot(false); setVaultItems([snap, ...vaultItems]); }} onAddMemory={(m) => setMemories([m, ...memories])} />;
@@ -380,35 +366,35 @@ export const App: React.FC = () => {
         <OfflineIndicator />
         <ToastContainer />
         
-        <AnimatePresence>
-          {showDriveMode && (
-            <ErrorBoundary>
-              <DriveMode onClose={() => setShowDriveMode(false)} initialMemberId={activeDriveMember} members={members} healthReadings={readings} projects={projects} activeSession={sessions.find(s => s.id === activeSessionId)} />
-            </ErrorBoundary>
-          )}
-        </AnimatePresence>
-        
-        <AnimatePresence>
-          {isNightlySealActive && <NightlySeal onConfirm={async () => { const snap = await createSystemSnapshot(false); setVaultItems(prev => [snap, ...prev]); }} onReopen={() => setIsNightlySealActive(false)} />}
-        </AnimatePresence>
-        
-        <AnimatePresence>
-          {isSanctumLocked && <SanctumLock onUnlock={() => { if (pendingView) setView(pendingView); setIsSanctumLocked(false); setPendingView(null); setIsSidebarOpen(false); }} />}
-        </AnimatePresence>
-        
-        <Sidebar currentView={view} onViewChange={handleNavigate} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} sessions={sessions} activeSessionId={activeSessionId} onSelectSession={(id) => { setActiveSessionId(id); setIsSidebarOpen(false); }} onCreateSession={() => handleCreateSession('GEMINI')} settings={settings} members={members} onSelectMember={(id) => { setView(ViewState.CouncilMember); setActiveDriveMember(id); setActiveSessionId(null); setIsSidebarOpen(false); }} onMemberAvatarUpload={() => {}} onNightlySeal={() => { setIsNightlySealActive(true); setIsSidebarOpen(false); }} memories={memories} vaultItems={vaultItems} onToggleGuestMode={() => setSettings({ ...settings, guestMode: !settings.guestMode })} />
-        
-        <main 
-          className="flex-1 relative z-10 flex flex-col h-full overflow-hidden transition-all duration-300" 
-          style={{ 
-              transform: isSidebarOpen ? 'translateX(10px) scale(0.98)' : 'none', 
-              opacity: isSidebarOpen ? 0.5 : 1
-          }}
-        >
-          <ErrorBoundary>
-            {renderView()}
-          </ErrorBoundary>
-        </main>
+        <Suspense fallback={<SanctuaryLoader />}>
+            <AnimatePresence>
+                {showDriveMode && (
+                    <DriveMode onClose={() => setShowDriveMode(false)} initialMemberId={activeDriveMember} members={members} healthReadings={readings} projects={projects} activeSession={sessions.find(s => s.id === activeSessionId)} />
+                )}
+            </AnimatePresence>
+            
+            <AnimatePresence>
+                {isNightlySealActive && <NightlySeal onConfirm={async () => { const snap = await createSystemSnapshot(false); setVaultItems(prev => [snap, ...prev]); }} onReopen={() => setIsNightlySealActive(false)} />}
+            </AnimatePresence>
+            
+            <AnimatePresence>
+                {isSanctumLocked && <SanctumLock onUnlock={() => { if (pendingView) setView(pendingView); setIsSanctumLocked(false); setPendingView(null); setIsSidebarOpen(false); }} />}
+            </AnimatePresence>
+            
+            <Sidebar currentView={view} onViewChange={handleNavigate} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} sessions={sessions} activeSessionId={activeSessionId} onSelectSession={(id) => { setActiveSessionId(id); setIsSidebarOpen(false); }} onCreateSession={() => handleCreateSession('GEMINI')} settings={settings} members={members} onSelectMember={(id) => { setView(ViewState.CouncilMember); setActiveDriveMember(id); setActiveSessionId(null); setIsSidebarOpen(false); }} onMemberAvatarUpload={() => {}} onNightlySeal={() => { setIsNightlySealActive(true); setIsSidebarOpen(false); }} memories={memories} vaultItems={vaultItems} onToggleGuestMode={() => setSettings({ ...settings, guestMode: !settings.guestMode })} />
+            
+            <main 
+                className="flex-1 relative z-10 flex flex-col h-full overflow-hidden transition-all duration-300" 
+                style={{ 
+                    transform: isSidebarOpen ? 'translateX(10px) scale(0.98)' : 'none', 
+                    opacity: isSidebarOpen ? 0.5 : 1
+                }}
+            >
+                <ErrorBoundary>
+                    {renderView()}
+                </ErrorBoundary>
+            </main>
+        </Suspense>
       </div>
     </div>
   );

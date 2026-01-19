@@ -39,17 +39,26 @@
       :root { 
           --bg-color: #000000; 
           --text-primary: #ffffff;
-          /* Root Typography Scaler */
           font-size: 16px; 
       }
       body {
         font-family: 'Inter', sans-serif;
         background-color: #000;
         color: #fff;
+        
+        /* HARDWARE VIEWPORT FIX (Phase 4) */
+        height: 100dvh; 
+        width: 100vw;
         overflow: hidden; 
+        position: fixed; /* Prevent scrolling bounce on mobile */
+        
         overscroll-behavior-y: none; 
         -webkit-tap-highlight-color: transparent;
         touch-action: manipulation;
+      }
+      #root {
+        height: 100dvh;
+        width: 100vw;
       }
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -57,8 +66,17 @@
       /* Global scaling support */
       #root-scaler {
           transform-origin: top left;
-          height: 100vh;
+          height: 100dvh;
           width: 100vw;
+      }
+
+      /* Transitions */
+      .animate-fade-in {
+        animation: fadeIn 0.5s ease-out forwards;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
       }
     </style>
   <script type="importmap">
