@@ -1,0 +1,96 @@
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#000000" />
+    
+    <!-- PWA / NATIVE SHELL CONFIG -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="application-name" content="Council of Codex">
+    
+    <title>Council of Codex // Sovereign Shell</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'lux-gold': '#D4AF37',
+              'zinc-950': '#09090b',
+              'zinc-900': '#18181B',
+            },
+            fontFamily: {
+              sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+              mono: ['"JetBrains Mono"', 'monospace'],
+              serif: ['"Crimson Text"', 'serif'],
+            }
+          },
+        },
+      };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Crimson+Text:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+    <style>
+      :root { 
+          --bg-color: #000000; 
+          --text-primary: #ffffff;
+          /* Root Typography Scaler */
+          font-size: 16px; 
+      }
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #000;
+        color: #fff;
+        overflow: hidden; 
+        overscroll-behavior-y: none; 
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+      }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      
+      /* Global scaling support */
+      #root-scaler {
+          transform-origin: top left;
+          height: 100vh;
+          width: 100vw;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
+    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^11.0.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.469.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "jspdf": "https://esm.sh/jspdf@^2.5.1",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // SOVEREIGN OFFLINE PROTOCOL
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js').then(reg => {
+            console.log('[Sovereign] Seal Established:', reg.scope);
+          }).catch(err => {
+            console.warn('[Sovereign] Seal Failed:', err);
+          });
+        });
+      }
+    </script>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
