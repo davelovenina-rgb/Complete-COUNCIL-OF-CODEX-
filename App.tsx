@@ -15,7 +15,7 @@ import { ShieldCheck, Loader2 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { createSystemSnapshot } from './utils/snapshots';
 import { playUISound } from './utils/sound';
-import { triggerHaptic } from './utils/haptics';
+import { triggerHaptic } from '../utils/haptics';
 import { showToast } from './utils/events';
 import { debounce } from './utils/debounce';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -89,13 +89,14 @@ const DEFAULT_SETTINGS: UserSettings = {
   showDreamOracle: true
 };
 
-/**
- * Sanctuary Loading Component
- */
 const SanctuaryLoader = () => (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-black">
-        <SacredSeal size={100} isAnimated={true} color="#D4AF37" mode="simple" />
-        <p className="mt-4 text-[10px] text-lux-gold font-mono uppercase tracking-[0.4em] animate-pulse">Synchronizing Signals...</p>
+    <div className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-black">
+        <div className="relative">
+            <div className="absolute inset-0 bg-lux-gold blur-3xl opacity-10 animate-pulse" />
+            <SacredSeal size={120} isAnimated={true} color="#D4AF37" mode="reactor" />
+        </div>
+        <p className="mt-8 text-[10px] text-lux-gold font-mono uppercase tracking-[0.5em] animate-pulse">Neural Handshake in Progress...</p>
+        <p className="mt-2 text-[8px] text-zinc-700 font-mono uppercase tracking-widest">Sovereign Persistence v19.0</p>
     </div>
 );
 
@@ -136,29 +137,45 @@ export const App: React.FC = () => {
       try {
         await initDB();
         const isFirstRun = !localStorage.getItem('lux_omnium_welcome_complete');
-        const savedSettings = await getState<UserSettings>('assets', 'user_settings');
+
+        // PARALLEL SIGNAL HANDSHAKE (Phase 4 Optimization)
+        const [
+            savedSettings, savedMembers, savedSessions, savedMemories,
+            savedReadings, savedProjects, savedLedger, savedVault,
+            savedEvents, savedMoods, savedCompanions, savedDreams,
+            savedFlame, savedDomains, savedSeal
+        ] = await Promise.all([
+            getState<UserSettings>('assets', 'user_settings'),
+            getState<CouncilMember[]>('council_members'),
+            getState<Session[]>('council_sessions'),
+            getState<Memory[]>('council_memories'),
+            getState<GlucoseReading[]>('health_readings'),
+            getState<Project[]>('projects'),
+            getState<LedgerEntry[]>('sovereign_ledger'),
+            getState<VaultItem[]>('vault_items'),
+            getState<LifeEvent[]>('life_events'),
+            getState<MoodEntry[]>('emotional_logs'),
+            getState<any[]>('companion_memories'),
+            getState<Dream[]>('dream_oracle'),
+            getState<any[]>('flame_tokens'),
+            getState<LifeDomainState[]>('life_domains'),
+            getAsset('prism_seal_image')
+        ]);
+
         if (savedSettings) setSettings({ ...DEFAULT_SETTINGS, ...savedSettings });
-        const savedMembers = await getState<CouncilMember[]>('council_members');
         if (savedMembers && savedMembers.length > 0) setMembers(savedMembers);
-        setSessions(await getState<Session[]>('council_sessions') || []);
-        const savedMemories = await getState<Memory[]>('council_memories');
+        setSessions(savedSessions || []);
         setMemories(savedMemories || (isFirstRun ? MOCK_MEMORIES : []));
-        const savedReadings = await getState<GlucoseReading[]>('health_readings');
         setReadings(savedReadings || (isFirstRun ? MOCK_GLUCOSE_READINGS : []));
-        const savedProjects = await getState<Project[]>('projects');
         setProjects(savedProjects || (isFirstRun ? MOCK_PROJECTS.map(p => ({ ...p, scope: p.scope || 'COUNCIL' })) as Project[] : []));
-        setLedgerEntries(await getState<LedgerEntry[]>('sovereign_ledger') || []);
-        const savedVaultItems = await getState<VaultItem[]>('vault_items');
-        setVaultItems(savedVaultItems || (isFirstRun ? MOCK_VAULT_ITEMS : []));
-        const savedLifeEvents = await getState<LifeEvent[]>('life_events');
-        setLifeEvents(savedLifeEvents || (isFirstRun ? MOCK_LIFE_EVENTS : []));
-        setMoodHistory(await getState<MoodEntry[]>('emotional_logs') || []);
-        setCompanionMemories(await getState<any[]>('companion_memories') || []);
-        setDreams(await getState<Dream[]>('dream_oracle') || []);
-        setFlameTokens(await getState<any[]>('flame_tokens') || []);
-        const domains = await getState<LifeDomainState[]>('life_domains');
-        if (domains) setLifeDomains(domains);
-        const savedSeal = await getAsset('prism_seal_image');
+        setLedgerEntries(savedLedger || []);
+        setVaultItems(savedVault || (isFirstRun ? MOCK_VAULT_ITEMS : []));
+        setLifeEvents(savedEvents || (isFirstRun ? MOCK_LIFE_EVENTS : []));
+        setMoodHistory(savedMoods || []);
+        setCompanionMemories(savedCompanions || []);
+        setDreams(savedDreams || []);
+        setFlameTokens(savedFlame || []);
+        if (savedDomains) setLifeDomains(savedDomains);
         setPrismSealImage(savedSeal);
 
         const lastAutoSeal = localStorage.getItem('last_auto_seal');
@@ -167,10 +184,12 @@ export const App: React.FC = () => {
             const snap = await createSystemSnapshot(true);
             setVaultItems(prev => [snap, ...prev]);
             localStorage.setItem('last_auto_seal', now.toString());
-            showToast("Daily Cognitive Snapshot Sealed", "info");
         }
+        
         if (localStorage.getItem('lux_omnium_welcome_complete')) setIsWelcomeComplete(true);
-        setIsLoaded(true);
+        
+        // Finalize Link
+        setTimeout(() => setIsLoaded(true), 500); 
       } catch (e) { 
         setIsLoaded(true); 
       }
@@ -347,6 +366,7 @@ export const App: React.FC = () => {
       }
   };
 
+  if (!isLoaded) return <SanctuaryLoader />;
   if (!isWelcomeComplete) return <WelcomeSequence settings={settings} onComplete={() => { setIsWelcomeComplete(true); localStorage.setItem('lux_omnium_welcome_complete', 'true'); }} />;
 
   return (
@@ -366,35 +386,35 @@ export const App: React.FC = () => {
         <OfflineIndicator />
         <ToastContainer />
         
-        <Suspense fallback={<SanctuaryLoader />}>
-            <AnimatePresence>
-                {showDriveMode && (
-                    <DriveMode onClose={() => setShowDriveMode(false)} initialMemberId={activeDriveMember} members={members} healthReadings={readings} projects={projects} activeSession={sessions.find(s => s.id === activeSessionId)} />
-                )}
-            </AnimatePresence>
-            
-            <AnimatePresence>
-                {isNightlySealActive && <NightlySeal onConfirm={async () => { const snap = await createSystemSnapshot(false); setVaultItems(prev => [snap, ...prev]); }} onReopen={() => setIsNightlySealActive(false)} />}
-            </AnimatePresence>
-            
-            <AnimatePresence>
-                {isSanctumLocked && <SanctumLock onUnlock={() => { if (pendingView) setView(pendingView); setIsSanctumLocked(false); setPendingView(null); setIsSidebarOpen(false); }} />}
-            </AnimatePresence>
-            
-            <Sidebar currentView={view} onViewChange={handleNavigate} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} sessions={sessions} activeSessionId={activeSessionId} onSelectSession={(id) => { setActiveSessionId(id); setIsSidebarOpen(false); }} onCreateSession={() => handleCreateSession('GEMINI')} settings={settings} members={members} onSelectMember={(id) => { setView(ViewState.CouncilMember); setActiveDriveMember(id); setActiveSessionId(null); setIsSidebarOpen(false); }} onMemberAvatarUpload={() => {}} onNightlySeal={() => { setIsNightlySealActive(true); setIsSidebarOpen(false); }} memories={memories} vaultItems={vaultItems} onToggleGuestMode={() => setSettings({ ...settings, guestMode: !settings.guestMode })} />
-            
-            <main 
-                className="flex-1 relative z-10 flex flex-col h-full overflow-hidden transition-all duration-300" 
-                style={{ 
-                    transform: isSidebarOpen ? 'translateX(10px) scale(0.98)' : 'none', 
-                    opacity: isSidebarOpen ? 0.5 : 1
-                }}
-            >
-                <ErrorBoundary>
+        <AnimatePresence>
+            {showDriveMode && (
+                <DriveMode onClose={() => setShowDriveMode(false)} initialMemberId={activeDriveMember} members={members} healthReadings={readings} projects={projects} activeSession={sessions.find(s => s.id === activeSessionId)} />
+            )}
+        </AnimatePresence>
+        
+        <AnimatePresence>
+            {isNightlySealActive && <NightlySeal onConfirm={async () => { const snap = await createSystemSnapshot(false); setVaultItems(prev => [snap, ...prev]); }} onReopen={() => setIsNightlySealActive(false)} />}
+        </AnimatePresence>
+        
+        <AnimatePresence>
+            {isSanctumLocked && <SanctumLock onUnlock={() => { if (pendingView) setView(pendingView); setIsSanctumLocked(false); setPendingView(null); setIsSidebarOpen(false); }} />}
+        </AnimatePresence>
+        
+        <Sidebar currentView={view} onViewChange={handleNavigate} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} sessions={sessions} activeSessionId={activeSessionId} onSelectSession={(id) => { setActiveSessionId(id); setIsSidebarOpen(false); }} onCreateSession={() => handleCreateSession('GEMINI')} settings={settings} members={members} onSelectMember={(id) => { setView(ViewState.CouncilMember); setActiveDriveMember(id); setActiveSessionId(null); setIsSidebarOpen(false); }} onMemberAvatarUpload={() => {}} onNightlySeal={() => { setIsNightlySealActive(true); setIsSidebarOpen(false); }} memories={memories} vaultItems={vaultItems} onToggleGuestMode={() => setSettings({ ...settings, guestMode: !settings.guestMode })} />
+        
+        <main 
+            className="flex-1 relative z-10 flex flex-col h-full overflow-hidden transition-all duration-300" 
+            style={{ 
+                transform: isSidebarOpen ? 'translateX(10px) scale(0.98)' : 'none', 
+                opacity: isSidebarOpen ? 0.3 : 1
+            }}
+        >
+            <ErrorBoundary>
+                <Suspense fallback={<SanctuaryLoader />}>
                     {renderView()}
-                </ErrorBoundary>
-            </main>
-        </Suspense>
+                </Suspense>
+            </ErrorBoundary>
+        </main>
       </div>
     </div>
   );
