@@ -45,17 +45,29 @@
         font-family: 'Inter', sans-serif;
         background-color: #000;
         color: #fff;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
         
-        /* HARDWARE VIEWPORT FIX (Phase 4) */
+        /* HARDWARE VIEWPORT FIX */
         height: 100dvh; 
         width: 100vw;
         overflow: hidden; 
-        position: fixed; /* Prevent scrolling bounce on mobile */
+        position: fixed; 
         
         overscroll-behavior-y: none; 
         -webkit-tap-highlight-color: transparent;
         touch-action: manipulation;
       }
+      
+      /* GLOBAL HEARTBEAT ANIMATION */
+      @keyframes ennea-beat {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+      }
+      .sacred-heartbeat {
+        animation: ennea-beat 2s infinite ease-in-out;
+      }
+
       #root {
         height: 100dvh;
         width: 100vw;
@@ -63,14 +75,12 @@
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       
-      /* Global scaling support */
       #root-scaler {
           transform-origin: top left;
           height: 100dvh;
           width: 100vw;
       }
 
-      /* Transitions */
       .animate-fade-in {
         animation: fadeIn 0.5s ease-out forwards;
       }
@@ -98,7 +108,6 @@
   <body>
     <div id="root"></div>
     <script>
-      // SOVEREIGN OFFLINE PROTOCOL
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/service-worker.js').then(reg => {

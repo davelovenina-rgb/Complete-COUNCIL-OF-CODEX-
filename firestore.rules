@@ -1,0 +1,17 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // SOVEREIGN RULE: Only the authenticated Master Identity (The Prism) 
+    // can access or modify the Sanctuary archives.
+    match /{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == 'SOVEREIGN_MASTER_ID';
+    }
+    
+    // ENNEA SHIELD: Public signals are strictly read-only and limited to version metadata.
+    match /system/metadata {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

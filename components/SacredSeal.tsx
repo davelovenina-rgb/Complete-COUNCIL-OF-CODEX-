@@ -6,27 +6,24 @@ interface SacredSealProps {
   size?: number;
   className?: string;
   isAnimated?: boolean;
-  color?: string; // Optional override for specific frequencies
-  mode?: 'simple' | 'complex' | 'reactor' | 'proton'; // New 'proton' mode
+  color?: string; 
+  mode?: 'simple' | 'complex' | 'reactor' | 'proton';
 }
 
 export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = "", isAnimated = true, color, mode = 'complex' }) => {
-  // Center: 200, 200 (based on viewBox 0 0 400 400)
   const c = 200;
   const uniqueId = useId().replace(/:/g, ''); 
   
-  const mainColor = color || "#D4AF37"; // Sovereign Gold default
+  const mainColor = color || "#D4AF37";
   const isProton = mode === 'proton';
 
   return (
-    <div className={`relative flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
+    <div className={`relative flex items-center justify-center ${className} ${isAnimated ? 'sacred-heartbeat' : ''}`} style={{ width: size, height: size }}>
       <motion.svg 
         viewBox="0 0 400 400" 
         className="w-full h-full"
         style={{ 
             filter: `drop-shadow(0 0 ${isProton || mode === 'reactor' ? '50px' : '30px'} ${color || 'rgba(212,175,55,0.3)'})`,
-            // Visual heartbeat sync using standard CSS variable interpolation
-            transform: isAnimated ? `scale(calc(1 + (sin(var(--ennea-beat) / 500) * 0.02)))` : 'none'
         } as any}
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -59,7 +56,6 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
           <path id={`textPathBottom-${uniqueId}`} d="M 340,200 A 140,140 0 0,1 60,200" />
         </defs>
 
-        {/* --- LAYER 1: THE FOUNDATION (Static/Slow) --- */}
         <motion.circle 
           cx={c} cy={c} r="195" 
           fill="none" 
@@ -69,7 +65,6 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
           strokeDasharray="4 4"
         />
 
-        {/* --- LAYER 2: THE PURITY OATH (Outer Ring) --- */}
         <motion.circle 
           cx={c} cy={c} r="190" 
           fill="none" 
@@ -80,7 +75,6 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
           transition={{ duration: 2, ease: "easeInOut" }}
         />
 
-        {/* --- LAYER 3: RUNIC DATA RING (Counter-Rotating) --- */}
         {mode !== 'simple' && (
             <motion.g
                 animate={isAnimated ? { rotate: isProton ? -720 : -360 } : {}}
@@ -95,7 +89,6 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
             </motion.g>
         )}
 
-        {/* --- LAYER 4: INSCRIPTIONS --- */}
         {!isProton && (
           <motion.g 
               animate={isAnimated ? { rotate: 360 } : {}}
@@ -103,19 +96,18 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
               style={{ transformOrigin: "200px 200px" }}
           >
               <text className="font-serif text-[24px] font-bold tracking-[0.2em] uppercase" fill={mainColor} textAnchor="middle">
-                  <textPath href={`#textPathTop-${uniqueId}`} startOffset="50%" {...({ side: "left" } as any)}>
+                  <textPath href={`#textPathTop-${uniqueId}`} startOffset="50%">
                       Amor Est Architectura
                   </textPath>
               </text>
               <text className="font-serif text-[20px] font-bold tracking-[0.2em] uppercase" fill={color ? `${color}99` : "rgba(212,175,55,0.6)"} textAnchor="middle">
-                  <textPath href={`#textPathBottom-${uniqueId}`} startOffset="50%" {...({ side: "right" } as any)}>
-                      Veritas Formae • 2025
+                  <textPath href={`#textPathBottom-${uniqueId}`} startOffset="50%">
+                      Veritas Formae • 2026
                   </textPath>
               </text>
           </motion.g>
         )}
 
-        {/* --- LAYER 5: PROTON BEAMS (Proton Gun Mode Only) --- */}
         {isProton && (
           <motion.g 
             animate={{ rotate: 360 }}
@@ -135,9 +127,7 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
           </motion.g>
         )}
 
-        {/* --- LAYER 6: REACTOR CORE (The Triangle Assembly) --- */}
         <g transform="translate(200, 200)">
-            {/* Background Glow for Reactor */}
             {(isProton || mode === 'reactor') && (
                 <motion.circle 
                     r="80" 
@@ -148,7 +138,6 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
                 />
             )}
 
-            {/* Downward Triangle (Flame) */}
             <motion.path
                 d="M 0,110 L -95,-55 L 95,-55 Z"
                 fill={`url(#flameGradient-${uniqueId})`}
@@ -160,7 +149,6 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
                 filter={`url(#glow-${uniqueId})`}
             />
             
-            {/* Upward Triangle (Prism) */}
             <motion.path
                 d="M 0,-110 L 95,55 L -95,55 Z"
                 fill={`url(#prismGradient-${uniqueId})`}
@@ -174,7 +162,6 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
             />
         </g>
 
-        {/* --- LAYER 7: THE DIAMOND HEART (Pulsing) --- */}
         <motion.rect
             x="185" y="185" width="30" height="30"
             fill="white"
@@ -193,7 +180,6 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
             filter={`url(#glow-${uniqueId})`}
         />
 
-        {/* --- LAYER 8: ORBITAL DEFENSE RINGS (Fast Spin) --- */}
         {(isProton || mode === 'reactor') && (
             <>
                 <motion.circle 
@@ -223,7 +209,6 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
 
       </motion.svg>
       
-      {/* ATMOSPHERIC GLOW OVERLAY */}
       {isAnimated && (
         <div 
             className="absolute inset-0 blur-3xl rounded-full pointer-events-none animate-pulse-slow mix-blend-screen" 
