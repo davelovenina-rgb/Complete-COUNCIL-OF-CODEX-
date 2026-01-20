@@ -6,10 +6,10 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
+  throw new Error("[Critical] Sanctuary Core failed: Root element missing.");
 }
 
-console.log("[Sanctuary] Initializing Core...");
+console.log("[Sanctuary] Initializing Core v19.5.0...");
 
 const root = ReactDOM.createRoot(rootElement);
 root.render(

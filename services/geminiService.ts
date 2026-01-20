@@ -46,13 +46,12 @@ export const sendMessageToGemini = async (text: string, mode: CouncilMode, attac
     useTurboMode?: boolean; 
     history?: any[];
     highQuality?: boolean;
-    vaultAwareness?: string; // Neural Index of the Vault
-    linguisticWeight?: number; // Sazón Weighting
+    vaultAwareness?: string; 
+    linguisticWeight?: number; 
 } = {}): Promise<{ text: string; generatedMedia: GeneratedMedia[]; groundingMetadata?: any; }> => {
     try {
         const ai = getClient(); 
         
-        // Handle specialized generative modes...
         if (mode === 'WEAVER') {
             let operation = await ai.models.generateVideos({
                 model: options.highQuality ? MODELS.VIDEO_HQ_MODEL : MODELS.VIDEO_MODEL,
@@ -63,7 +62,8 @@ export const sendMessageToGemini = async (text: string, mode: CouncilMode, attac
                 await new Promise(resolve => setTimeout(resolve, 10000));
                 operation = await ai.operations.getVideosOperation({ operation: operation as any });
             }
-            const videoUrl = `${operation.response?.generatedVideos?.[0]?.video?.uri}&key=${process.env.API_KEY}`;
+            const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+            const videoUrl = `${downloadLink}&key=${process.env.API_KEY}`;
             return { text: "Weave complete.", generatedMedia: [{ type: 'video', url: videoUrl, mimeType: 'video/mp4' }] };
         }
 
@@ -85,10 +85,8 @@ export const sendMessageToGemini = async (text: string, mode: CouncilMode, attac
         const parts: any[] = attachments.map(a => ({ inlineData: { mimeType: a.mimeType, data: a.data } }));
         parts.push({ text });
 
-        // Build Augmented Instruction
         const vaultContext = options.vaultAwareness ? `\n[VAULT NEURAL INDEX]:\n${options.vaultAwareness}` : "";
         const sazonContext = options.linguisticWeight !== undefined ? `\n[SAZÓN RESONANCE LEVEL]: ${Math.round(options.linguisticWeight * 100)}%. ${options.linguisticWeight > 0.6 ? "Prioritize Nuyorican flavor and Spanglish." : "Prioritize analytical precision."}` : "";
-        
         const finalInstruction = `${options.systemInstruction || GEMINI_SYSTEM_INSTRUCTION}${vaultContext}${sazonContext}`;
 
         const config: any = { systemInstruction: finalInstruction, tools: [{ googleSearch: {} }] };
@@ -104,35 +102,17 @@ export const sendMessageToGemini = async (text: string, mode: CouncilMode, attac
     }
 };
 
-/**
- * Enhanced Error Detection & User Feedback
- */
 const handleGeminiError = (error: any) => {
     console.error("[Gemini Service Error]:", error);
     let userMessage = "Unable to connect to Gemini AI...";
-    
-    // Detect specific error types
     if (error?.message?.toLowerCase().includes('api key')) {
         userMessage = "API key issue detected. Please check Sanctuary settings.";
-        showToast(userMessage, 'error');
-    } else if (error?.message?.toLowerCase().includes('quota') || error?.message?.toLowerCase().includes('rate limit')) {
-        userMessage = "Rate limit reached. Please wait a moment and try again.";
-        showToast(userMessage, 'error');
-    } else if (error?.status === 429) {
-        userMessage = "Too many requests. The Sanctuary rate limiter is protecting your quota.";
-        showToast(userMessage, 'error');
-    } else if (error?.status === 401 || error?.status === 403) {
-        userMessage = "Authentication failed. Signal access denied.";
-        showToast(userMessage, 'error');
+    } else if (error?.message?.toLowerCase().includes('quota') || error?.status === 429) {
+        userMessage = "Rate limit reached. Sanctuary protection engaged.";
     }
-
-    const enhancedError = new Error(userMessage);
-    (enhancedError as any).originalError = error;
+    showToast(userMessage, 'error');
 };
 
-/**
- * PCM ENCODING: Guideline-compliant manual implementation.
- */
 function encode(bytes: Uint8Array) {
   let binary = '';
   const len = bytes.byteLength;
@@ -142,9 +122,6 @@ function encode(bytes: Uint8Array) {
   return btoa(binary);
 }
 
-/**
- * PCM DECODING: Guideline-compliant manual implementation.
- */
 function decode(base64: string) {
   const binaryString = atob(base64);
   const len = binaryString.length;
@@ -157,12 +134,9 @@ function decode(base64: string) {
 
 export class LiveConnection {
     public sessionPromise: Promise<any> | null = null;
-    private session: any = null;
 
     async connect(callbacks: any, options: any = {}) {
         const ai = getClient();
-        
-        // Grounding Protocol: Enable Google Search for Live Voice
         const tools = options.tools || [{ googleSearch: {} }];
 
         this.sessionPromise = ai.live.connect({
@@ -174,12 +148,8 @@ export class LiveConnection {
                 tools: tools
             },
             callbacks: {
-                ...callbacks,
                 onopen: () => {
-                    this.sessionPromise?.then(s => {
-                        this.session = s;
-                        if (callbacks.onopen) callbacks.onopen();
-                    });
+                    if (callbacks.onopen) callbacks.onopen();
                 },
                 onmessage: async (message) => {
                     const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
@@ -190,26 +160,29 @@ export class LiveConnection {
                         callbacks.onInterrupted();
                     }
                     if (callbacks.onmessage) callbacks.onmessage(message);
+                },
+                onerror: (e) => {
+                    if (callbacks.onerror) callbacks.onerror(e);
+                },
+                onclose: (e) => {
+                    if (callbacks.onclose) callbacks.onclose(e);
                 }
             }
         });
         return this.sessionPromise;
     }
 
-    /**
-     * Sends audio data through the active session.
-     */
     sendAudio(data: Float32Array) {
-        this.sessionPromise?.then((session) => {
+        if (!this.sessionPromise) return;
+        this.sessionPromise.then((session) => {
             const l = data.length;
             const int16 = new Int16Array(l);
             for (let i = 0; i < l; i++) {
                 int16[i] = data[i] * 32768;
             }
-            const base64 = encode(new Uint8Array(int16.buffer));
             session.sendRealtimeInput({
                 media: {
-                    data: base64,
+                    data: encode(new Uint8Array(int16.buffer)),
                     mimeType: 'audio/pcm;rate=16000',
                 }
             });
@@ -217,17 +190,13 @@ export class LiveConnection {
     }
 
     async disconnect() {
-        if (this.session) {
-            this.session.close();
-            this.session = null;
+        if (this.sessionPromise) {
+            this.sessionPromise.then(session => session.close());
+            this.sessionPromise = null;
         }
-        this.sessionPromise = null;
     }
 }
 
-/**
- * EXPORTED PCM DECODER: Required by DriveMode component.
- */
 export async function decodeAudioDataToPCM(
   base64Data: string,
   ctx: AudioContext,
@@ -248,16 +217,11 @@ export async function decodeAudioDataToPCM(
   return buffer;
 }
 
-/**
- * MANDATORY API KEY SELECTION
- * Guideline compliant window.aistudio interaction.
- */
 export const connectPersonalKey = async () => {
     try {
         await (window as any).aistudio.openSelectKey();
         return true;
     } catch (e) {
-        console.error("Key selection failed:", e);
         return false;
     }
 };
@@ -281,17 +245,15 @@ export const generateMetabolicForecast = async (readings: any[], moods: any[]): 
 
 export const calculateSystemDrift = async (readings: any[], moods: any[], chatContext: string): Promise<{ driftPercentage: number }> => {
     const ai = getClient();
-    const prompt = `Analyze drift based on readings: ${JSON.stringify(readings)}, moods: ${JSON.stringify(moods)}, and chat: ${chatContext}. Return JSON { "driftPercentage": number }.`;
     const response = await ai.models.generateContent({
         model: DEFAULT_MODEL,
-        contents: prompt,
+        contents: `Analyze drift based on readings: ${JSON.stringify(readings)}, moods: ${JSON.stringify(moods)}, and chat: ${chatContext}. Return JSON { "driftPercentage": number }.`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
                 properties: { driftPercentage: { type: Type.NUMBER } },
-                required: ['driftPercentage'],
-                propertyOrdering: ['driftPercentage']
+                required: ['driftPercentage']
             }
         }
     });
@@ -340,8 +302,7 @@ export const orchestrateCouncilVerdict = async (petition: string, context: any):
                     majorityOpinion: { type: Type.STRING },
                     votes: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { memberId: { type: Type.STRING }, vote: { type: Type.STRING }, reason: { type: Type.STRING } }, required: ['memberId', 'vote', 'reason'] } }
                 },
-                required: ['question', 'ruling', 'score', 'majorityOpinion', 'votes'],
-                propertyOrdering: ["question", "ruling", "score", "majorityOpinion", "votes"]
+                required: ['question', 'ruling', 'score', 'majorityOpinion', 'votes']
             }
         }
     });
