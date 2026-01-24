@@ -228,10 +228,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     <div className="relative h-full flex flex-col bg-black text-white overflow-hidden animate-fade-in">
         <div className="flex items-center justify-between px-4 py-3 bg-[#0a0a0a] border-b border-white/5 shrink-0 z-20">
             <div className="flex items-center gap-2">
-                {onBack ? (
+                {onBack && (
                     <button onClick={onBack} className="p-2 -ml-2 text-zinc-500 hover:text-white rounded-full transition-colors"><ChevronLeft size={22} /></button>
-                ) : (
-                    <button onClick={onMenuClick} className="p-2 -ml-2 text-zinc-500 hover:text-white rounded-full transition-colors"><Menu size={22} /></button>
                 )}
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full border bg-black flex items-center justify-center overflow-hidden shrink-0" style={{ borderColor: activeMember.color }}>

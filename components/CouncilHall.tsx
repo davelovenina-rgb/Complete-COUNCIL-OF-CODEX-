@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { ViewState, Project, GlucoseReading, LifeDomainState, CouncilMemberId, UserSettings } from '../types';
 import { Activity, Heart, Menu, Camera, Sun, Brain, Sunrise, CloudMoon, Eye, EyeOff, ShieldCheck, Zap, Moon, Sparkles, Mic, Lock } from 'lucide-react';
@@ -192,8 +193,15 @@ export const CouncilHall: React.FC<CouncilHallProps> = ({
 
   return (
     <div className={`w-full h-full flex flex-col ${isRealityBridgeActive ? 'bg-transparent' : 'bg-black'} text-primary font-sans relative overflow-hidden transition-colors duration-1000`}>
-        <header className="shrink-0 relative z-20 px-6 pt-2 pb-1 flex justify-between items-center">
-            <button onClick={onMenuClick} className="text-zinc-500 p-2 -ml-2 hover:text-white transition-colors"><Menu size={20} /></button>
+        <header className="shrink-0 relative z-20 px-6 pt-4 pb-1 flex justify-between items-center">
+            {/* SINGLE SOVEREIGN SIDEBAR TRIGGER */}
+            <button 
+                onClick={onMenuClick} 
+                className="p-2 -ml-2 text-zinc-400 hover:text-white rounded-full transition-colors active:scale-95"
+                title="Sanctuary Registry"
+            >
+                <Menu size={24} />
+            </button>
             
             <div className="flex items-center gap-2 md:gap-4">
                 <div className="hidden md:flex flex-col items-end gap-1 mr-2">

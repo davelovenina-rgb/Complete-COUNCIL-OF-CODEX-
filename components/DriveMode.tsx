@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, Mic, MicOff, X, Zap, Signal, Square, Power, Bomb, ShieldCheck, Activity as SyncIcon, Infinity, History } from 'lucide-react';
@@ -46,6 +45,11 @@ export const DriveMode: React.FC<DriveModeProps> = ({
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [historySynced, setHistorySynced] = useState(false);
   
+  // USER VOICE FEEDBACK STATE
+  const [isUserSpeaking, setIsUserSpeaking] = useState(false);
+  // Fixed Error: NodeJS.Timeout is not available in browser environment, using ReturnType<typeof setTimeout>
+  const signalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [isProtonActive, setIsProtonActive] = useState(false);
   
@@ -189,6 +193,19 @@ export const DriveMode: React.FC<DriveModeProps> = ({
               if (liveSessionRef.current) {
                   liveSessionRef.current.sendAudio(inputData);
               }
+
+              // PEAK METER SIGNAL DETECTION FOR PULSE FEEDBACK
+              let maxVal = 0;
+              for (let i = 0; i < inputData.length; i++) {
+                  const val = Math.abs(inputData[i]);
+                  if (val > maxVal) maxVal = val;
+              }
+              
+              if (maxVal > 0.05) {
+                  setIsUserSpeaking(true);
+                  if (signalTimeoutRef.current) clearTimeout(signalTimeoutRef.current);
+                  signalTimeoutRef.current = setTimeout(() => setIsUserSpeaking(false), 200);
+              }
           };
 
           micSource.connect(scriptProcessorRef.current);
@@ -203,7 +220,10 @@ export const DriveMode: React.FC<DriveModeProps> = ({
   }, [activeMember, isMuted, stopAllOutputSources, isActive, activeSession]);
 
   useEffect(() => {
-      return () => { hardStopSession(); };
+      return () => { 
+          hardStopSession(); 
+          if (signalTimeoutRef.current) clearTimeout(signalTimeoutRef.current);
+      };
   }, [hardStopSession]); 
 
   const handleProtonPulse = () => {
@@ -297,9 +317,24 @@ export const DriveMode: React.FC<DriveModeProps> = ({
                         <Square size={20} fill="currentColor" />
                      </button>
                      <div className="relative">
-                        <button onClick={() => setIsMuted(!isMuted)} className={`w-16 h-16 rounded-full flex items-center justify-center border-2 transition-all relative z-10 ${isMuted ? 'bg-zinc-900 border-zinc-700 text-zinc-500' : 'bg-red-600 border-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.6)]'}`}>
-                            {isMuted ? <MicOff size={24} /> : <Mic size={24} className="animate-pulse" />}
-                        </button>
+                        <motion.button 
+                            onClick={() => setIsMuted(!isMuted)} 
+                            animate={{ 
+                                scale: !isMuted && isUserSpeaking ? 1.15 : 1,
+                                boxShadow: !isMuted && isUserSpeaking ? '0 0 40px rgba(239, 68, 68, 0.8)' : isMuted ? 'none' : '0 0 20px rgba(239, 68, 68, 0.4)'
+                            }}
+                            className={`w-16 h-16 rounded-full flex items-center justify-center border-2 transition-all relative z-10 ${isMuted ? 'bg-zinc-900 border-zinc-700 text-zinc-500' : 'bg-red-600 border-red-500 text-white'}`}
+                        >
+                            {isMuted ? <MicOff size={24} /> : <Mic size={24} className={isUserSpeaking ? "animate-pulse" : ""} />}
+                        </motion.button>
+                        {!isMuted && isUserSpeaking && (
+                            <motion.div 
+                                initial={{ scale: 1, opacity: 0.5 }}
+                                animate={{ scale: 1.5, opacity: 0 }}
+                                transition={{ duration: 1, repeat: Infinity }}
+                                className="absolute inset-0 rounded-full bg-red-500 pointer-events-none"
+                            />
+                        )}
                      </div>
                     <button onClick={() => onClose()} className="w-12 h-12 flex items-center justify-center bg-zinc-900/80 rounded-full text-zinc-400 border border-zinc-700"><X size={20} /></button>
                 </div>
