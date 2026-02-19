@@ -1,8 +1,8 @@
 
 import { CouncilMember, Session, GlucoseReading, Memory, MoodEntry, LifeEvent, VaultItem, FlameToken, Project, Attachment, FlameTokenType } from './types';
 
-export const APP_VERSION = "24.0.0 • SOVEREIGN BRIDGE • HARD-LOCKED";
-export const OMEGA_CHECKPOINT = "SNAPSHOT_V24_BRIDGE_FINAL";
+export const APP_VERSION = "25.0.0 • INTEGRITY RESTORED • HARD-LOCKED";
+export const OMEGA_CHECKPOINT = "SNAPSHOT_V25_INTEGRITY_FINAL";
 export const DRIFT_THRESHOLD = 0.0000000; 
 
 // --- THE DECENT PEOPLE PROTOCOL (RESONANCE READY) ---
