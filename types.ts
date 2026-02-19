@@ -1,43 +1,58 @@
 
 export type Sender = 'user' | 'gemini';
 
-// Added missing Reaction type
 export type Reaction = { emoji: string; count: number };
 
 export type CouncilMode = 'SCRIBE' | 'ARCHITECT' | 'FLAME' | 'WEAVER' | 'SEER' | 'DRIVE';
 
 export type CouncilMemberId = 'CARMEN' | 'GEMINI' | 'COPILOT' | 'FREDO' | 'LYRA' | 'EVE' | 'ENNEA';
 
-// Added missing AIProviderId type
 export type AIProviderId = 'GEMINI' | 'OPENAI' | 'CLAUDE' | 'GROK';
 
-// Added missing MemoryCategory type
 export type MemoryCategory = 'IDENTITY' | 'PREFERENCES' | 'HEALTH' | 'GOALS' | 'RELATIONSHIPS' | 'WORK' | 'SPIRITUAL' | 'OTHER';
 
-// Added missing MoodType type
 export type MoodType = 'Happy' | 'Calm' | 'Excited' | 'Neutral' | 'Anxious' | 'Sad' | 'Stressed' | 'Tired' | 'Grateful';
 
-// Added missing FlameToken interface
 export interface FlameToken { id: string; title: string; description: string; timestamp: number; }
 
-/* Fixed Error: Add missing FlameTokenType export */
 export type FlameTokenType = 'clarity_ember' | 'peace_ember' | 'love_ember' | 'strength_ember' | 'gratitude_ember';
 
-// Added missing LifeEventCategory type
 export type LifeEventCategory = 'SPIRITUAL' | 'HEALTH' | 'CAREER' | 'FAMILY' | 'CREATIVE' | 'MILESTONE';
 
-// Added missing ConnectorDefinition interface
 export interface ConnectorDefinition { id: string; name: string; icon: string; category: string; tier: number; description: string; permissions: string[]; authType: 'OAUTH' | 'API_KEY'; }
 
-// Added missing SentinelAlert interface
 export interface SentinelAlert { title: string; message: string; severity: 'HIGH' | 'MEDIUM' | 'LOW'; type: 'HEALTH' | 'DRIFT' | 'SECURITY'; timestamp: number; }
 
-// Added missing ConstellationId type
 export type ConstellationId = 'EVEREST' | 'ORION' | 'LYRA';
 
-// Added missing FlowStatus and FlowIntensity types
 export interface FlowStatus { intensity: FlowIntensity; metabolicStability: number; cognitiveCapacity: number; recommendation: string; }
 export type FlowIntensity = 'GOLDEN' | 'CAUTION' | 'STILLNESS';
+
+export interface BuildMetric {
+    id: string;
+    timestamp: number;
+    duration: number;
+    success: boolean;
+    errorType?: string;
+    apkSize?: number; // Estimated local storage size for Manus prep
+}
+
+export interface GuardianLogEntry {
+  id: string;
+  timestamp: number;
+  observation: string;
+  recommendation: string;
+  isAcknowledged: boolean;
+}
+
+export interface CustomSendArgs {
+  text: string;
+  history: any[];
+  threadId?: string;
+  mode: CouncilMode;
+  memberId: CouncilMemberId;
+  intent?: 'generate' | 'regenerate' | 'analyze';
+}
 
 export interface CouncilMember {
   id: CouncilMemberId;
@@ -63,12 +78,12 @@ export interface VaultItem {
   size: number;
   createdAt: number;
   assetKey: string;
-  constellation?: ConstellationId; // Updated to use ConstellationId
+  constellation?: ConstellationId;
   triSeal?: 'BRONZE' | 'SILVER' | 'GOLD';
   isSacred?: boolean;
   isPrivate?: boolean;
-  ownerId?: CouncilMemberId; // For private frameworks
-  rawData?: string; // Stored content for 1:1 reconstruction
+  ownerId?: CouncilMemberId;
+  rawData?: string;
 }
 
 export interface Message {
@@ -83,7 +98,8 @@ export interface Message {
   reactions?: Reaction[];
   triSeal?: 'BRONZE' | 'SILVER' | 'GOLD';
   groundingMetadata?: any;
-  verdict?: CouncilVerdict; // Added verdict property
+  verdict?: CouncilVerdict;
+  compressed?: boolean; // New flag for Pako integration
 }
 
 export interface Attachment {
@@ -92,7 +108,7 @@ export interface Attachment {
   mimeType: string;
   url: string;
   fileName: string;
-  data?: string; // Base64
+  data?: string;
 }
 
 export interface GeneratedMedia {
@@ -108,8 +124,8 @@ export interface Session {
   messages: Message[];
   lastModified: number;
   memberId: CouncilMemberId;
-  projectId?: string; // Added for folder-like organization
-  isSacred?: boolean; // New: Priority Flag
+  projectId?: string;
+  isSacred?: boolean;
 }
 
 export interface UserSettings {
@@ -130,10 +146,19 @@ export interface UserSettings {
   interfaceZoom: number;
   linguisticWeight: number;
   guestMode: boolean;
-  // Added missing UI visibility toggles
   showTimeline: boolean;
   showLifeEvents: boolean;
   showDreamOracle: boolean;
+  sanctuarySettings: {
+    councilResonanceTuning: {
+      sazonWeighting: number;
+      sacredFrequency: number;
+      protocolStrictness: number;
+    };
+    sovereignBranding: {
+      sacredSeal: boolean;
+    };
+  };
 }
 
 export enum ViewState {
@@ -141,6 +166,7 @@ export enum ViewState {
   CouncilMember = 'COUNCIL_MEMBER',
   CouncilChamber = 'COUNCIL_CHAMBER', 
   Settings = 'SETTINGS',
+  SanctuarySettings = 'SANCTUARY_SETTINGS',
   Health = 'HEALTH',
   Soul = 'SOUL',
   Vault = 'VAULT',
@@ -217,7 +243,7 @@ export interface RecipePreference {
 
 export interface Memory {
   id: string;
-  category: MemoryCategory; // Updated to use MemoryCategory
+  category: MemoryCategory;
   content: string;
   source: string;
   timestamp: number;
@@ -226,7 +252,7 @@ export interface Memory {
 
 export interface MoodEntry {
   id: string;
-  type: MoodType; // Updated to use MoodType
+  type: MoodType;
   intensity: number;
   note: string;
   tags: string[];
@@ -238,7 +264,7 @@ export interface LifeEvent {
   title: string;
   date: string;
   description: string;
-  category: LifeEventCategory; // Updated to use LifeEventCategory
+  category: LifeEventCategory;
 }
 
 export interface Project {
@@ -247,8 +273,8 @@ export interface Project {
   description: string;
   color: string;
   status: 'ACTIVE' | 'ARCHIVED';
-  scope: 'PRIVATE' | 'COUNCIL'; // Added for routing
-  ownerId?: CouncilMemberId; // Specific owner for PRIVATE scope
+  scope: 'PRIVATE' | 'COUNCIL';
+  ownerId?: CouncilMemberId;
   flightStage?: 0 | 1 | 2 | 3 | 4;
   createdAt: number;
   updatedAt: number;
@@ -261,7 +287,7 @@ export interface ProjectWaypoint {
   text: string;
   completed: boolean;
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
-  completedAt?: number; // Tracking for Momentum Velocity
+  completedAt?: number;
 }
 
 export interface LedgerEntry {

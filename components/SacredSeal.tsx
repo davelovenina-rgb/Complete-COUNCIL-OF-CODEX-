@@ -1,4 +1,3 @@
-
 import React, { useId } from 'react';
 import { motion } from 'framer-motion';
 
@@ -78,7 +77,7 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
         {mode !== 'simple' && (
             <motion.g
                 animate={isAnimated ? { rotate: isProton ? -720 : -360 } : {}}
-                transition={{ duration: isProton ? 30 : 120, repeat: Infinity, ease: "linear" }}
+                transition={{ duration: isProton ? 30 : 120, repeat: window.Infinity, ease: "linear" }}
                 style={{ transformOrigin: "200px 200px", opacity: 0.4 }}
             >
                 <circle cx={c} cy={c} r="170" fill="none" stroke={isProton ? "#FFF" : mainColor} strokeWidth="1" strokeDasharray="10 10" />
@@ -92,7 +91,7 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
         {!isProton && (
           <motion.g 
               animate={isAnimated ? { rotate: 360 } : {}}
-              transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+              transition={{ duration: 60, repeat: window.Infinity, ease: "linear" }}
               style={{ transformOrigin: "200px 200px" }}
           >
               <text className="font-serif text-[24px] font-bold tracking-[0.2em] uppercase" fill={mainColor} textAnchor="middle">
@@ -111,7 +110,7 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
         {isProton && (
           <motion.g 
             animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 2, repeat: window.Infinity, ease: "linear" }}
             style={{ transformOrigin: "200px 200px" }}
           >
             {[0, 60, 120, 180, 240, 300].map(deg => (
@@ -121,7 +120,7 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
                 fill="#22D3EE"
                 transform={`rotate(${deg} 200 200)`}
                 animate={{ height: 150, opacity: 0.8 }}
-                transition={{ duration: 0.5, repeat: Infinity, delay: deg / 360, repeatType: "mirror" }}
+                transition={{ duration: 0.5, repeat: window.Infinity, delay: deg / 360, repeatType: "mirror" }}
               />
             ))}
           </motion.g>
@@ -134,7 +133,7 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
                     fill={isProton ? "#22D3EE" : mainColor} 
                     opacity="0.1"
                     animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    transition={{ duration: 2, repeat: window.Infinity, ease: "easeInOut" }}
                 />
             )}
 
@@ -145,7 +144,7 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
                 strokeWidth="2"
                 initial={isAnimated ? { scale: 0, opacity: 0 } : { scale: 1, opacity: 1 }}
                 animate={isAnimated ? { scale: isProton ? 1.1 : 1, opacity: 1 } : {}}
-                transition={{ delay: 0.5, duration: isProton ? 0.2 : 1, repeat: isProton ? Infinity : 0, repeatType: "mirror" }}
+                transition={{ delay: 0.5, duration: isProton ? 0.2 : 1, repeat: isProton ? window.Infinity : 0, repeatType: "mirror" }}
                 filter={`url(#glow-${uniqueId})`}
             />
             
@@ -156,7 +155,7 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
                 strokeWidth="2"
                 initial={isAnimated ? { scale: 0, opacity: 0 } : { scale: 1, opacity: 1 }}
                 animate={isAnimated ? { scale: isProton ? 1.1 : 1, opacity: 1 } : {}}
-                transition={{ delay: 0.8, duration: isProton ? 0.3 : 1, repeat: isProton ? Infinity : 0, repeatType: "mirror" }}
+                transition={{ delay: 0.8, duration: isProton ? 0.3 : 1, repeat: isProton ? window.Infinity : 0, repeatType: "mirror" }}
                 filter={`url(#glow-${uniqueId})`}
                 style={{ mixBlendMode: 'screen' }}
             />
@@ -174,7 +173,7 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
             transition={{ 
                 delay: 1.5, 
                 duration: isProton ? 0.5 : 2, 
-                repeat: Infinity,
+                repeat: window.Infinity,
                 ease: "easeInOut"
             }}
             filter={`url(#glow-${uniqueId})`}
@@ -190,7 +189,7 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
                     opacity="0.6"
                     strokeDasharray="20 40"
                     animate={{ rotate: 360 }}
-                    transition={{ duration: isProton ? 5 : 20, repeat: Infinity, ease: "linear" }}
+                    transition={{ duration: isProton ? 5 : 20, repeat: window.Infinity, ease: "linear" }}
                     style={{ transformOrigin: "200px 200px" }}
                 />
                 <motion.circle 
@@ -201,7 +200,7 @@ export const SacredSeal: React.FC<SacredSealProps> = ({ size = 300, className = 
                     opacity="0.4"
                     strokeDasharray="2 10"
                     animate={{ rotate: -360 }}
-                    transition={{ duration: isProton ? 8 : 30, repeat: Infinity, ease: "linear" }}
+                    transition={{ duration: isProton ? 8 : 30, repeat: window.Infinity, ease: "linear" }}
                     style={{ transformOrigin: "200px 200px" }}
                 />
             </>

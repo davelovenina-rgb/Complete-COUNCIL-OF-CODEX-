@@ -1,14 +1,16 @@
 
+import { compressText, decompressText } from './compression';
+
 export const DB_NAME = 'LuxOmniumDB';
 export const STORE_NAME = 'assets';
-export const DB_VERSION = 3; // Incremented to v3 to ensure user_settings store is manifested
+export const DB_VERSION = 3; 
 
 const ALL_STORES = [
     'assets', 'council_sessions', 'health_readings', 'council_memories', 
     'emotional_logs', 'dream_oracle', 'life_events', 'vault_items', 
     'flame_tokens', 'projects', 'companion_memories', 'life_domains',
     'connector_configs', 'custom_apis', 'sovereign_ledger', 'council_members', 'system_logs',
-    'council_ledger', 'user_settings' // Added missing store
+    'council_ledger', 'user_settings', 'build_metrics'
 ];
 
 export interface SystemLogEntry {
@@ -37,16 +39,33 @@ export const initDB = (): Promise<IDBDatabase> => {
   });
 };
 
+/**
+ * SOVEREIGN PERSISTENCE ENGINE
+ * Automatically compresses session messages before writing to disk.
+ */
 export const saveState = async (storeName: string, data: any, key?: string): Promise<void> => {
   const db = await initDB();
+  
+  // Apply transparent compression for sessions
+  let finalData = data;
+  if (storeName === 'council_sessions' && Array.isArray(data)) {
+      finalData = data.map(session => ({
+          ...session,
+          messages: session.messages.map((m: any) => {
+              if (m.compressed) return m; // Already compressed
+              return { ...m, text: compressText(m.text), compressed: true };
+          })
+      }));
+  }
+
   return new Promise((resolve, reject) => {
     try {
       const tx = db.transaction([storeName], "readwrite");
       const store = tx.objectStore(storeName);
 
-      if (Array.isArray(data) && !key) {
+      if (Array.isArray(finalData) && !key) {
         store.clear().onsuccess = () => {
-          data.forEach(item => {
+          finalData.forEach(item => {
             const itemKey = item.id || item.timestamp;
             if (itemKey) {
               store.put(item, itemKey);
@@ -57,10 +76,10 @@ export const saveState = async (storeName: string, data: any, key?: string): Pro
         };
       } else {
         if (key) {
-          store.put(data, key);
+          store.put(finalData, key);
         } else {
-          const fallbackKey = (data as any).id || (data as any).timestamp || undefined;
-          store.put(data, fallbackKey);
+          const fallbackKey = (finalData as any).id || (finalData as any).timestamp || undefined;
+          store.put(finalData, fallbackKey);
         }
       }
 
@@ -72,6 +91,10 @@ export const saveState = async (storeName: string, data: any, key?: string): Pro
   });
 };
 
+/**
+ * SOVEREIGN RETRIEVAL ENGINE
+ * Automatically decompresses session messages upon reading from disk.
+ */
 export const getState = async <T>(storeName: string, key?: string): Promise<T | null> => {
   const db = await initDB();
   return new Promise((resolve, reject) => {
@@ -80,7 +103,26 @@ export const getState = async <T>(storeName: string, key?: string): Promise<T | 
       const store = tx.objectStore(storeName);
       const request = key ? store.get(key) : (store as any).getAll();
       request.onsuccess = () => {
-        const result = request.result;
+        let result = request.result;
+        
+        // Decompress logic for sessions
+        if (storeName === 'council_sessions' && result) {
+            if (Array.isArray(result)) {
+                result = result.map(session => ({
+                    ...session,
+                    messages: session.messages.map((m: any) => {
+                        if (!m.compressed) return m;
+                        return { ...m, text: decompressText(m.text), compressed: false };
+                    })
+                }));
+            } else if (result.messages) {
+                result.messages = result.messages.map((m: any) => {
+                    if (!m.compressed) return m;
+                    return { ...m, text: decompressText(m.text), compressed: false };
+                });
+            }
+        }
+
         if (result === undefined || (Array.isArray(result) && result.length === 0)) {
             resolve(null);
         } else if (!key && Array.isArray(result)) {
@@ -159,6 +201,7 @@ export const performSystemRepair = async (level: RepairLevel): Promise<string> =
 };
 
 export const runSystemDiagnostics = async (mode: 'FULL' | 'QUICK') => {
+    // In a real environment, this would verify data parity across stores.
     return { db: true, api: true, network: navigator.onLine, audio: true, manifest: true, pwa: true };
 };
 

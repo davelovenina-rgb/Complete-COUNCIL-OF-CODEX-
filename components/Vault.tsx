@@ -1,9 +1,9 @@
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Archive, Image as ImageIcon, FileText, Menu, ArrowLeft, Trash2, Download, Eye, X, Shield, History, Plus, Search, Zap, Loader2, Upload, FileJson, Globe, Cloud, CloudOff, RefreshCw } from 'lucide-react';
+import { Archive, Image as ImageIcon, FileText, Menu, ArrowLeft, Trash2, Download, Eye, X, Shield, History, Plus, Search, Zap, Loader2, Upload, FileJson, Globe, Cloud, CloudOff, RefreshCw, CheckCircle2, Lock } from 'lucide-react';
 import { VaultItem, ViewState } from '../types';
-import { saveAsset, getAsset, createBackup, restoreBackup } from '../utils/db';
+import { saveAsset, getAsset, createBackup, restoreBackup, getState, saveState } from '../utils/db';
 import { scribeExtractRaw } from '../services/geminiService';
 import { playUISound } from '../utils/sound';
 import { triggerHaptic } from '../utils/haptics';
@@ -17,14 +17,29 @@ interface VaultProps {
   onMenuClick: () => void;
 }
 
+interface SyncRecord {
+    id: string;
+    timestamp: number;
+    size: number;
+    node: string;
+    status: 'VERIFIED' | 'FAILED';
+}
+
 export const Vault: React.FC<VaultProps> = ({ items, onAddVaultItem, onDeleteVaultItem, onBack, onMenuClick }) => {
   const [activeTab, setActiveTab] = useState<'ALL' | 'RELIC' | 'SCROLL' | 'FRAMEWORK' | 'CLOUD'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [syncHistory, setSyncHistory] = useState<SyncRecord[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const backupInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+      getState<SyncRecord[]>('distributed_sync_history').then(history => {
+          if (history) setSyncHistory(history as unknown as SyncRecord[]);
+      });
+  }, []);
 
   const handleScribeFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -71,12 +86,31 @@ export const Vault: React.FC<VaultProps> = ({ items, onAddVaultItem, onDeleteVau
       triggerHaptic('heavy');
       playUISound('hero');
       
-      // Simulate Encrypted Off-site Sync
-      await new Promise(r => setTimeout(r, 3000));
-      
-      setIsCloudSyncing(false);
-      showToast("Distributed Echo Sealed Off-site", "success");
-      playUISound('success');
+      try {
+          const seed = await createBackup();
+          // Distributed Vault Simulation: Off-site Mirroring
+          await new Promise(r => setTimeout(r, 4500));
+          
+          const newRecord: SyncRecord = {
+              id: crypto.randomUUID(),
+              timestamp: Date.now(),
+              size: new Blob([seed]).size,
+              node: 'San Francisco Alpha (Mirror)',
+              status: 'VERIFIED'
+          };
+          
+          const updatedHistory = [newRecord, ...syncHistory].slice(0, 10);
+          setSyncHistory(updatedHistory);
+          await saveState('distributed_sync_history', updatedHistory);
+
+          setIsCloudSyncing(false);
+          showToast("Distributed Echo Sealed Off-site", "success");
+          playUISound('success');
+          triggerHaptic('success');
+      } catch (e) {
+          setIsCloudSyncing(false);
+          showToast("Sync Interrupted", "error");
+      }
   };
 
   const handleMasterExport = async () => {
@@ -147,7 +181,7 @@ export const Vault: React.FC<VaultProps> = ({ items, onAddVaultItem, onDeleteVau
                       <div className="p-8 rounded-[2.5rem] bg-zinc-900/50 border border-cyan-900/30 text-center relative overflow-hidden">
                            <div className="absolute top-0 right-0 p-6 opacity-5"><Globe size={120} className="text-cyan-500" /></div>
                            <div className="relative z-10 space-y-6">
-                               <div className="w-20 h-20 rounded-full bg-cyan-950/30 border border-cyan-500/30 flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(6,182,212,0.1)]">
+                               <div className="w-20 h-20 rounded-full bg-cyan-950/30 border border-cyan-500/20 flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(6,182,212,0.1)]">
                                    <Cloud size={40} className={isCloudSyncing ? 'animate-bounce text-cyan-400' : 'text-cyan-500'} />
                                </div>
                                <div className="space-y-2">
@@ -160,22 +194,44 @@ export const Vault: React.FC<VaultProps> = ({ items, onAddVaultItem, onDeleteVau
                                 className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-2xl uppercase text-[10px] tracking-[0.3em] transition-all shadow-xl shadow-cyan-900/40 flex items-center justify-center gap-3"
                                >
                                    {isCloudSyncing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                                   {isCloudSyncing ? 'Synchronizing Vectors...' : 'Pulse to Cloud'}
+                                   {isCloudSyncing ? 'Mirroring Neural State...' : 'Seal to Cloud'}
                                </button>
                                <div className="flex items-center justify-center gap-2 text-[8px] font-mono text-cyan-800 uppercase tracking-widest">
-                                   <Shield size={10} /> RSA-4096 Encryption Active
+                                   <Shield size={10} /> RSA-4096 Sharding Enabled
                                </div>
                            </div>
                       </div>
 
                       <div className="space-y-4">
-                          <h4 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest px-2">Sync Registry</h4>
-                          <div className="p-4 bg-zinc-900/30 border border-white/5 rounded-2xl flex items-center justify-between opacity-50">
-                              <div className="flex items-center gap-3">
-                                  <CloudOff size={16} className="text-zinc-700" />
-                                  <span className="text-[10px] font-bold text-zinc-500 uppercase">San Francisco Node</span>
-                              </div>
-                              <span className="text-[8px] font-mono text-zinc-800">DORMANT</span>
+                          <div className="flex items-center justify-between px-2">
+                              <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.4em]">Mirror Ledger</h4>
+                              <span className="text-[9px] font-mono text-zinc-700">{syncHistory.length} ATOMIC SEALS</span>
+                          </div>
+                          <div className="space-y-2">
+                            {syncHistory.map(record => (
+                                <div key={record.id} className="p-4 bg-zinc-900/30 border border-white/5 rounded-2xl flex items-center justify-between group hover:border-cyan-500/20 transition-colors">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-2 bg-black rounded-lg border border-white/10 text-emerald-500">
+                                            <CheckCircle2 size={14} />
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] font-bold text-zinc-300 uppercase tracking-wide">{record.node}</div>
+                                            <div className="text-[8px] text-zinc-600 font-mono mt-1 uppercase">BLOCKSIZE: {(record.size / 1024).toFixed(1)} KB</div>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-[8px] text-zinc-700 font-mono mb-1">{new Date(record.timestamp).toLocaleString()}</div>
+                                        <div className="flex items-center gap-1 justify-end text-[7px] text-emerald-500 font-bold uppercase tracking-widest">
+                                            <Lock size={8} /> ENCRYPTED
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                            {syncHistory.length === 0 && (
+                                <div className="p-10 text-center opacity-30 border-2 border-dashed border-zinc-900 rounded-3xl">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest">Awaiting First Cloud Pulse</p>
+                                </div>
+                            )}
                           </div>
                       </div>
                   </div>

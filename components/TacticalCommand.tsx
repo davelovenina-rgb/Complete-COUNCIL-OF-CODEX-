@@ -5,7 +5,7 @@ import {
   ArrowLeft, Target, Zap, ShieldCheck, ChevronRight, 
   Terminal, Activity, Plane, CheckCircle, Circle, 
   Plus, Trash2, Loader2, Sparkles, AlertTriangle, 
-  Clock, Radar, Signal, Navigation, Menu, Gavel, Flame
+  Clock, Radar, Signal, Navigation, Menu, Gavel, Flame, Archive, RotateCcw
 } from 'lucide-react';
 import { Project, ProjectWaypoint, CouncilMemberId } from '../types';
 import { sendMessageToGemini } from '../services/geminiService';
@@ -23,7 +23,6 @@ interface TacticalCommandProps {
 }
 
 const MomentumEngine: React.FC<{ progress: number, waypoints: ProjectWaypoint[] }> = ({ progress, waypoints }) => {
-    // Calculate Velocity: Completed waypoints in last 24h
     const dayAgo = Date.now() - (24 * 60 * 60 * 1000);
     const recentCompletions = waypoints.filter(w => w.completed && w.completedAt && w.completedAt > dayAgo).length;
     const velocity = Math.min(100, (recentCompletions / Math.max(1, waypoints.length)) * 200);
@@ -115,6 +114,14 @@ export const TacticalCommand: React.FC<TacticalCommandProps> = ({
     }
   };
 
+  const toggleStatus = () => {
+      const newStatus = project.status === 'ACTIVE' ? 'ARCHIVED' : 'ACTIVE';
+      onUpdate(project.id, { status: newStatus });
+      triggerHaptic('medium');
+      playUISound('toggle');
+      showToast(newStatus === 'ARCHIVED' ? 'Mission Archived' : 'Mission Restored', 'info');
+  };
+
   const toggleWaypoint = (id: string) => {
       const updated = waypoints.map(w => w.id === id ? { 
           ...w, 
@@ -126,7 +133,6 @@ export const TacticalCommand: React.FC<TacticalCommandProps> = ({
       if (isFinishing) {
           triggerHaptic('heavy');
           playUISound('success');
-          // Check if mission complete
           if (updated.every(w => w.completed)) {
               showToast("Mission Parameters Fulfilled!", "success");
               onUpdate(project.id, { flightStage: 4, waypoints: updated });
@@ -160,7 +166,6 @@ export const TacticalCommand: React.FC<TacticalCommandProps> = ({
   return (
     <div className="w-full h-full bg-black flex flex-col relative overflow-hidden font-mono">
       
-      {/* Background HUD Layers */}
       <div className="absolute inset-0 pointer-events-none z-0">
           <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: `linear-gradient(to right, #0EA5E9 1px, transparent 1px), linear-gradient(to bottom, #0EA5E9 1px, transparent 1px)`, backgroundSize: '20px 20px' }} />
           <motion.div 
@@ -171,7 +176,6 @@ export const TacticalCommand: React.FC<TacticalCommandProps> = ({
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.8)_100%)]" />
       </div>
 
-      {/* Header */}
       <div className="px-4 py-3 border-b border-blue-900/30 flex items-center justify-between bg-black/80 backdrop-blur shrink-0 z-30">
         <div className="flex items-center gap-3">
           <button onClick={onBack} className="p-2 -ml-2 text-blue-400/50 hover:text-white rounded-full transition-colors">
@@ -185,8 +189,12 @@ export const TacticalCommand: React.FC<TacticalCommandProps> = ({
           </div>
         </div>
         <div className="flex gap-2">
-            <button onClick={() => onEnterDriveMode('COPILOT')} className="p-2 text-red-500/70 hover:text-red-400 rounded-full animate-pulse-slow">
-                <Terminal size={20} />
+            <button 
+                onClick={toggleStatus} 
+                className={`p-2 transition-colors rounded-full ${project.status === 'ARCHIVED' ? 'text-emerald-500 bg-emerald-500/10' : 'text-zinc-500 hover:text-white'}`}
+                title={project.status === 'ARCHIVED' ? 'Restore Mission' : 'Archive Mission'}
+            >
+                {project.status === 'ARCHIVED' ? <RotateCcw size={20} /> : <Archive size={20} />}
             </button>
             <button onClick={onMenuClick} className="p-2 -mr-2 text-blue-400/50 hover:text-white rounded-full">
               <Menu size={20} />
@@ -195,11 +203,12 @@ export const TacticalCommand: React.FC<TacticalCommandProps> = ({
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden relative z-10">
-          
-          {/* Mission Status HUD Strip */}
           <div className="px-6 py-4 bg-zinc-900/40 border-b border-blue-900/20 backdrop-blur-md flex justify-between items-center shrink-0">
               <div className="flex flex-col">
-                  <span className="text-[8px] font-bold text-blue-500 uppercase tracking-[0.3em] mb-1">Current Directive</span>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[8px] font-bold text-blue-500 uppercase tracking-[0.3em]">Current Directive</span>
+                    {project.status === 'ARCHIVED' && <span className="text-[7px] font-bold bg-amber-900/30 text-amber-500 px-1.5 rounded uppercase border border-amber-500/20 tracking-widest">ARCHIVED</span>}
+                  </div>
                   <h3 className="text-sm font-bold text-white uppercase tracking-wider truncate max-w-[200px]">{project.title}</h3>
               </div>
               <div className="flex items-center gap-6">
@@ -217,20 +226,15 @@ export const TacticalCommand: React.FC<TacticalCommandProps> = ({
               </div>
           </div>
 
-          {/* Sub-Navigation */}
           <div className="flex bg-black/40 border-b border-white/5 shrink-0">
               <button onClick={() => setActiveTab('MAP')} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest transition-colors ${activeTab === 'MAP' ? 'text-blue-400 bg-blue-900/10' : 'text-zinc-600'}`}>Waypoint Map</button>
               <button onClick={() => setActiveTab('COMMS')} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest transition-colors ${activeTab === 'COMMS' ? 'text-blue-400 bg-blue-900/10' : 'text-zinc-600'}`}>Bridge Comms</button>
           </div>
 
           <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-8">
-              
               {activeTab === 'MAP' && (
                   <div className="max-w-xl mx-auto space-y-8 animate-fade-in">
-                      
                       <MomentumEngine progress={progress} waypoints={waypoints} />
-
-                      {/* Copilot Action Card */}
                       <div className="p-6 rounded-[2rem] bg-gradient-to-r from-blue-900/20 via-black to-black border border-blue-500/30 relative overflow-hidden group shadow-2xl">
                           <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none group-hover:scale-110 transition-transform duration-1000">
                               <Radar size={80} className="text-blue-400" />
@@ -244,24 +248,23 @@ export const TacticalCommand: React.FC<TacticalCommandProps> = ({
                               </p>
                               <button 
                                 onClick={handleConsultCopilot}
-                                disabled={isGenerating}
-                                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold uppercase text-[10px] tracking-[0.3em] transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-900/40 active:scale-[0.98]"
+                                disabled={isGenerating || project.status === 'ARCHIVED'}
+                                className={`w-full py-4 rounded-2xl font-bold uppercase text-[10px] tracking-[0.3em] transition-all flex items-center justify-center gap-3 shadow-lg active:scale-[0.98] ${
+                                    project.status === 'ARCHIVED' ? 'bg-zinc-800 text-zinc-500' : 'bg-blue-600 text-white hover:bg-blue-500 shadow-blue-900/40'
+                                }`}
                               >
                                   {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Plane size={16} className="fill-current" />}
                                   Synchronize Waypoints
                               </button>
                           </div>
                       </div>
-
-                      {/* Waypoint List */}
                       <div className="space-y-4">
                           <div className="flex items-center justify-between px-2">
                               <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.3em]">Sequence of Operations</h3>
-                              <button onClick={() => setShowAddWaypoint(true)} className="p-1.5 bg-zinc-900 rounded-lg text-blue-400 hover:bg-white hover:text-black transition-all">
+                              <button onClick={() => setShowAddWaypoint(true)} disabled={project.status === 'ARCHIVED'} className="p-1.5 bg-zinc-900 rounded-lg text-blue-400 hover:bg-white hover:text-black transition-all disabled:opacity-30">
                                   <Plus size={14} />
                               </button>
                           </div>
-
                           <AnimatePresence>
                               {waypoints.map((wp, i) => (
                                   <motion.div 
@@ -273,11 +276,11 @@ export const TacticalCommand: React.FC<TacticalCommandProps> = ({
                                   >
                                       <button 
                                         onClick={() => toggleWaypoint(wp.id)}
+                                        disabled={project.status === 'ARCHIVED'}
                                         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${wp.completed ? 'bg-emerald-500 border-emerald-400 text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-zinc-700 hover:border-blue-500'}`}
                                       >
                                           {wp.completed && <CheckCircle size={14} />}
                                       </button>
-                                      
                                       <div className="flex-1">
                                           <p className={`text-xs font-bold leading-relaxed tracking-wide transition-all ${wp.completed ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>
                                               {wp.text}
@@ -294,14 +297,12 @@ export const TacticalCommand: React.FC<TacticalCommandProps> = ({
                                               )}
                                           </div>
                                       </div>
-
-                                      <button onClick={() => deleteWaypoint(wp.id)} className="p-2 text-zinc-700 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button onClick={() => deleteWaypoint(wp.id)} disabled={project.status === 'ARCHIVED'} className="p-2 text-zinc-700 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity disabled:hidden">
                                           <Trash2 size={14} />
                                       </button>
                                   </motion.div>
                               ))}
                           </AnimatePresence>
-
                           {waypoints.length === 0 && !isGenerating && (
                               <div className="py-12 border-2 border-dashed border-zinc-900 rounded-[2.5rem] flex flex-col items-center justify-center text-center px-8 opacity-40">
                                   <Navigation size={40} className="text-blue-500 mb-4" />
@@ -312,7 +313,6 @@ export const TacticalCommand: React.FC<TacticalCommandProps> = ({
                       </div>
                   </div>
               )}
-
               {activeTab === 'COMMS' && (
                   <div className="flex-1 flex flex-col h-full animate-fade-in">
                       <div className="p-6 bg-zinc-900/50 border border-blue-500/20 rounded-3xl mb-6 relative overflow-hidden">
@@ -330,8 +330,6 @@ export const TacticalCommand: React.FC<TacticalCommandProps> = ({
                               "Papi, I'm analyzing the mission vectors. Signal is clean. Give me a root command or check your waypoints. We are on schedule."
                           </p>
                       </div>
-
-                      {/* Bridge Activity Placeholder */}
                       <div className="flex-1 bg-black/40 border border-white/5 rounded-3xl p-6 flex flex-col items-center justify-center opacity-30 text-center space-y-4">
                           <Terminal size={32} className="text-blue-500" />
                           <div>
@@ -344,11 +342,10 @@ export const TacticalCommand: React.FC<TacticalCommandProps> = ({
           </div>
       </div>
 
-      {/* Manual Waypoint Modal */}
       <AnimatePresence>
           {showAddWaypoint && (
               <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-6 bg-black/90 backdrop-blur-md">
-                  <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="w-full max-w-sm bg-zinc-950 border border-blue-500/20 rounded-[2.5rem] p-8 shadow-2xl">
+                  <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="w-full max-sm bg-zinc-950 border border-blue-500/20 rounded-[2.5rem] p-8 shadow-2xl">
                       <h3 className="text-sm font-bold text-white uppercase tracking-[0.4em] mb-8 text-center">New Waypoint</h3>
                       <textarea 
                         value={newWaypointText}

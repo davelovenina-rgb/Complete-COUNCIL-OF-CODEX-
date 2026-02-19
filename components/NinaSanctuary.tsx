@@ -43,7 +43,7 @@ const RosePetals: React.FC = () => {
                     }}
                     transition={{
                         duration: Math.random() * 10 + 10,
-                        repeat: Infinity,
+                        repeat: window.Infinity,
                         delay: Math.random() * 10,
                         ease: "linear"
                     }}
@@ -526,6 +526,7 @@ export const NinaSanctuary: React.FC<NinaSanctuaryProps> = ({
                         <h3 className="text-rose-100 font-bold text-sm tracking-wide">{mem.name}</h3>
                         <p className="text-rose-200/70 text-xs line-clamp-2 mt-1 font-serif italic">"{mem.caption}"</p>
                         <div className="flex gap-2 mt-4">
+                            {/* Fixed Error: Wrap handleWeaveDream in arrow function to avoid immediate execution and return type mismatch */}
                             <button onClick={() => handleWeaveDream(mem)} disabled={isWeaving} className="flex-1 py-2 bg-white/10 hover:bg-white text-white hover:text-black rounded-xl text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
                                 {isWeaving ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />} Weave Dream
                             </button>

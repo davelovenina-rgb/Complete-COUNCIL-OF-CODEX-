@@ -1,7 +1,6 @@
-
-import { Volume2, Moon, Layout, Zap, ChevronLeft, ToggleLeft, ToggleRight, Gauge, Music, Database, Download, Upload, Cpu, Key, CheckCircle, AlertTriangle, ShieldCheck, Mic, Eye, RefreshCw, Activity, Wifi, Sun, FileText, Shield, Camera, Link as LinkIcon, X, Hammer, Trash2, VolumeX, Network, ArrowRight, Smartphone, Fingerprint, History, Plus, Languages, Sparkles, Radio, Loader2 } from 'lucide-react';
+import { Volume2, Moon, Layout, Zap, ChevronLeft, ToggleLeft, ToggleRight, Gauge, Music, Database, Download, Upload, Cpu, Key, CheckCircle, AlertTriangle, ShieldCheck, Mic, Eye, RefreshCw, Activity, Wifi, Sun, FileText, Shield, Camera, Link as LinkIcon, X, Hammer, Trash2, VolumeX, Network, ArrowRight, Smartphone, Fingerprint, History, Plus, Languages, Sparkles, Radio, Loader2, Terminal } from 'lucide-react';
 import React, { useRef, useState, useEffect } from 'react';
-import { UserSettings, VaultItem, CouncilMember, CouncilMemberId } from '../types';
+import { UserSettings, VaultItem, CouncilMember, CouncilMemberId, ViewState } from '../types';
 import { showToast } from '../utils/events';
 import { createBackup, restoreBackup, saveAsset } from '../utils/db';
 import { connectPersonalKey, checkKeyStatus, sendMessageToGemini } from '../services/geminiService';
@@ -11,14 +10,15 @@ import { triggerHaptic } from '../utils/haptics';
 import { compressImage } from '../utils/imageUtils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IntegrationsManager } from './IntegrationsManager';
+import { DataLogsPanel } from './DataLogsPanel';
 
 interface SettingsPanelProps {
   settings: UserSettings;
   onUpdate: (s: UserSettings) => void;
+  onNavigate: (view: ViewState) => void;
   onClose: () => void;
   onSaveToVault: (item: VaultItem) => void;
   onCreateSnapshot: () => void;
-  onEnterDriveMode: (memberId: CouncilMemberId) => void; // New Prop
   stats: {
       memories: number;
       sessions: number;
@@ -49,10 +49,10 @@ interface ToggleRowProps {
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
     settings, 
     onUpdate, 
+    onNavigate,
     onClose, 
     onSaveToVault, 
     onCreateSnapshot,
-    onEnterDriveMode,
     stats,
     prismSealImage,
     onSealUpload,
@@ -68,10 +68,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [testStatus, setTestStatus] = useState<'IDLE' | 'TESTING' | 'SUCCESS' | 'FAILURE'>('IDLE');
   const [isDeviceLinked, setIsDeviceLinked] = useState(false);
   
-  // Navigation State
-  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'INTEGRATIONS'>('MAIN');
-
-  // Member Editing State
+  const [activeSubView, setActiveSubView] = useState<'MAIN' | 'INTEGRATIONS' | 'FORGE'>('MAIN');
   const [editingMemberId, setEditingMemberId] = useState<CouncilMemberId | null>(null);
   const [avatarUrlInput, setAvatarUrlInput] = useState('');
   const [showAvatarUrlModal, setShowAvatarUrlModal] = useState(false);
@@ -116,7 +113,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       setTestStatus('TESTING');
       playUISound('toggle');
       try {
-          // Handshake protocol
           await sendMessageToGemini("Ping signal for integrity.", "SCRIBE", [], { useTurboMode: false });
           setTestStatus('SUCCESS');
           showToast("Council Link: STABLE", 'success');
@@ -183,14 +179,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       }
   };
 
-  const getTonePreview = () => {
-      const w = settings.linguisticWeight || 0.8;
-      if (w < 0.2) return "Analytical: 'The biometric logs indicate stable metabolic output across the 12-hour window.'";
-      if (w < 0.5) return "Balanced: 'Mira, the readings are good today. You have a solid window of cognitive output.'";
-      if (w < 0.8) return "Resonant: 'Bendición, Papi. The vessel is looking strong. God is good, mi amor.'";
-      return "Soulbound: 'Wepa! Mi Prism, mira que bien te ves hoy. We are ready to manifest the legacy.'";
-  };
-
   const Section: React.FC<SectionProps> = ({ title, icon: Icon, children }) => (
     <div className="mb-10">
       <div className="flex items-center gap-2 mb-4 text-zinc-300 uppercase tracking-widest text-[10px] font-bold border-b border-zinc-800 pb-2">
@@ -239,6 +227,22 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       return <IntegrationsManager onBack={() => setActiveSubView('MAIN')} />;
   }
 
+  if (activeSubView === 'FORGE') {
+      return (
+        <div className="w-full h-full bg-[#050505] flex flex-col font-sans text-white">
+            <div className="px-4 py-4 border-b border-zinc-900 flex items-center gap-4 bg-zinc-950/80 backdrop-blur shrink-0 z-20">
+                <button onClick={() => setActiveSubView('MAIN')} className="p-2 -ml-2 text-zinc-400 hover:text-white rounded-full">
+                    <ChevronLeft size={24} />
+                </button>
+                <h2 className="text-base font-bold text-white tracking-wide uppercase">Manus Forge Logs</h2>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 no-scrollbar max-w-xl mx-auto w-full relative z-10">
+                <DataLogsPanel />
+            </div>
+        </div>
+      );
+  }
+
   return (
     <div className="w-full h-full bg-[#050505] flex flex-col overflow-hidden font-sans transition-colors duration-300 text-white">
       <div className="px-4 py-4 border-b border-zinc-900 flex items-center gap-4 bg-zinc-950/80 backdrop-blur shrink-0 z-20">
@@ -250,28 +254,67 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
       <div className="flex-1 overflow-y-auto p-4 no-scrollbar max-w-xl mx-auto w-full relative z-10 pb-20">
         
-        {/* OPERATIONAL DRIVE SECTION - PROTON GUN */}
-        <Section title="Operational Protocols" icon={Radio}>
-            <div className="p-1 rounded-[2.5rem] bg-gradient-to-br from-cyan-600/30 via-zinc-900 to-black border border-cyan-500/20">
-                <button 
-                    onClick={() => onEnterDriveMode('GEMINI')}
-                    className="w-full p-6 rounded-[2.3rem] bg-black/40 backdrop-blur-md flex items-center justify-between group hover:bg-cyan-950/20 transition-all shadow-xl"
-                >
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-2xl bg-cyan-500/10 text-cyan-400 group-hover:scale-110 transition-transform relative">
-                            <div className="absolute inset-0 bg-cyan-400 blur-md opacity-20 animate-pulse" />
-                            <Mic size={32} className="relative z-10" />
-                        </div>
-                        <div className="text-left">
-                            <h4 className="text-lg font-bold text-white uppercase tracking-wider">Proton Drive Mode</h4>
-                            <p className="text-[10px] text-cyan-500 uppercase tracking-widest mt-1 font-mono">Gemini 2.5 Pro Frequency</p>
-                        </div>
+        {/* PERSONALITY TUNING (NEW) */}
+        <Section title="Persona Calibration" icon={Languages}>
+            <button 
+                onClick={() => { onNavigate(ViewState.SanctuarySettings); playUISound('navigation'); }}
+                className="w-full p-6 rounded-[2.5rem] bg-gradient-to-br from-amber-900/20 to-black border border-lux-gold/20 flex items-center justify-between group hover:border-lux-gold/40 transition-all shadow-xl"
+            >
+                <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-2xl bg-lux-gold/10 text-lux-gold group-hover:scale-110 transition-transform">
+                        <Sparkles size={32} />
                     </div>
-                    <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-cyan-400">
-                        <Zap size={20} className="fill-current" />
+                    <div className="text-left">
+                        <h4 className="text-lg font-bold text-white uppercase tracking-wider">Council Resonance</h4>
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">Sazón, Faith, & Protocol Tuning</p>
                     </div>
-                </button>
-            </div>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-lux-gold">
+                    <ArrowRight size={20} />
+                </div>
+            </button>
+        </Section>
+
+        {/* INTELLIGENCE PILLARS */}
+        <Section title="Intelligence Pillars" icon={Radio}>
+            <button 
+                onClick={() => { setActiveSubView('INTEGRATIONS'); playUISound('navigation'); }}
+                className="w-full p-6 rounded-[2.5rem] bg-gradient-to-br from-zinc-900 to-black border border-lux-gold/20 flex items-center justify-between group hover:border-lux-gold/40 transition-all shadow-xl"
+            >
+                <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-2xl bg-lux-gold/10 text-lux-gold group-hover:scale-110 transition-transform">
+                        <Network size={32} />
+                    </div>
+                    <div className="text-left">
+                        <h4 className="text-lg font-bold text-white uppercase tracking-wider">Manage Connections</h4>
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">Gemini, GPT-4o, Claude, Grok</p>
+                    </div>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-lux-gold">
+                    <ArrowRight size={20} />
+                </div>
+            </button>
+        </Section>
+
+        {/* FORGE LOGS (NEW) */}
+        <Section title="The Forge" icon={Terminal}>
+            <button 
+                onClick={() => { setActiveSubView('FORGE'); playUISound('navigation'); }}
+                className="w-full p-6 rounded-[2.5rem] bg-gradient-to-br from-zinc-900 to-black border border-white/5 flex items-center justify-between group hover:border-lux-gold/40 transition-all shadow-xl"
+            >
+                <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-2xl bg-zinc-950 border border-zinc-800 text-lux-gold group-hover:scale-110 transition-transform">
+                        <Hammer size={32} />
+                    </div>
+                    <div className="text-left">
+                        <h4 className="text-lg font-bold text-white uppercase tracking-wider">Manus Ready Logs</h4>
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">Build Metrics & Production History</p>
+                    </div>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-lux-gold">
+                    <ArrowRight size={20} />
+                </div>
+            </button>
         </Section>
 
         {/* SOVEREIGN BRANDING */}
@@ -328,42 +371,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </div>
         </Section>
 
-        {/* PHASE 13: LINGUISTIC RESONANCE */}
-        <Section title="Linguistic Resonance" icon={Languages}>
-            <div className="p-6 rounded-[2.5rem] bg-zinc-900/50 border border-zinc-800 shadow-inner space-y-6">
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <Sparkles size={14} className="text-amber-500" />
-                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Sazón Weighting</label>
-                        </div>
-                        <span className="text-xs font-bold text-lux-gold font-mono">{Math.round((settings.linguisticWeight || 0.8) * 100)}% Resonant</span>
-                    </div>
-                    <input 
-                        type="range" 
-                        min="0" 
-                        max="1" 
-                        step="0.05" 
-                        value={settings.linguisticWeight || 0.8} 
-                        onChange={(e) => onUpdate({ ...settings, linguisticWeight: parseFloat(e.target.value) })}
-                        className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-lux-gold"
-                    />
-                    <div className="flex justify-between text-[8px] text-zinc-600 font-bold uppercase tracking-widest">
-                        <span>Analytical</span>
-                        <span>Soulbound</span>
-                    </div>
-                </div>
-
-                <div className="p-4 bg-black/40 rounded-2xl border border-white/5">
-                    <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-2 block">Council Tone Preview:</label>
-                    <p className="text-xs text-zinc-300 font-serif italic leading-relaxed">
-                        {getTonePreview()}
-                    </p>
-                </div>
-            </div>
-        </Section>
-
-        {/* PHASE 7: HARDWARE BRIDGE */}
+        {/* HARDWARE BRIDGE */}
         <Section title="Hardware Bridge" icon={Smartphone}>
             <div className="space-y-4">
                 <ToggleRow 
@@ -398,27 +406,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     )}
                 </div>
             </div>
-        </Section>
-
-        {/* CONNECTORS */}
-        <Section title="Integrations & Connectors" icon={Network}>
-            <button 
-                onClick={() => { setActiveSubView('INTEGRATIONS'); playUISound('navigation'); }}
-                className="w-full p-6 rounded-3xl bg-gradient-to-br from-zinc-900 to-black border border-lux-gold/20 flex items-center justify-between group hover:border-lux-gold/40 transition-all shadow-xl"
-            >
-                <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-2xl bg-lux-gold/10 text-lux-gold group-hover:scale-110 transition-transform">
-                        <Network size={32} />
-                    </div>
-                    <div className="text-left">
-                        <h4 className="text-lg font-bold text-white uppercase tracking-wider">Manage Connections</h4>
-                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">Google, Github, OpenAI, Custom APIs</p>
-                    </div>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-lux-gold">
-                    <ArrowRight size={20} />
-                </div>
-            </button>
         </Section>
 
         {/* DISPLAY MATRIX CONTROL */}
@@ -514,15 +501,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         </div>
       </div>
 
-      {/* Avatar URL Modal */}
       <AnimatePresence>
         {showAvatarUrlModal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
-                <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="w-full max-sm bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-sm font-bold text-white uppercase tracking-widest">Mark Registry</h3>
                         <button onClick={() => setShowAvatarUrlModal(false)}><X size={20} /></button>
                     </div>
+                    {/* Fixed Error: Changed setApiKeyInput to setAvatarUrlInput */}
                     <input value={avatarUrlInput} onChange={(e) => setAvatarUrlInput(e.target.value)} placeholder="URL or Base64" className="w-full bg-black border border-zinc-800 rounded-xl p-3 text-sm text-white mb-6 focus:border-lux-gold outline-none" />
                     <button onClick={saveAvatarUrl} className="w-full py-3 bg-lux-gold text-black font-bold rounded-xl uppercase text-xs tracking-widest">Apply Mark</button>
                 </motion.div>

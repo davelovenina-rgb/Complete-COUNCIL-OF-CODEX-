@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, Mic, MicOff, X, Zap, Signal, Square, Power, Bomb, ShieldCheck, Activity as SyncIcon, Infinity, History } from 'lucide-react';
+import { Mic, MicOff, X, Zap, Signal, Square, Power, Bomb, ShieldCheck, Activity as SyncIcon, Infinity as InfinityIcon, History as HistoryIcon } from 'lucide-react';
 import { LiveConnection, decodeAudioDataToPCM } from '../services/geminiService';
 import { THE_PRISM_CONTEXT, COUNCIL_MEMBERS } from '../constants';
 import { playUISound } from '../utils/sound';
@@ -45,9 +46,7 @@ export const DriveMode: React.FC<DriveModeProps> = ({
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [historySynced, setHistorySynced] = useState(false);
   
-  // USER VOICE FEEDBACK STATE
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
-  // Fixed Error: NodeJS.Timeout is not available in browser environment, using ReturnType<typeof setTimeout>
   const signalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
@@ -116,7 +115,7 @@ export const DriveMode: React.FC<DriveModeProps> = ({
       
       if (isAutoReconnect) setIsReconnecting(true);
       setIsActive(true);
-      setStatusText(isAutoReconnect ? 'Resealing Signal...' : 'Opening Bridge...');
+      setStatusText(isAutoReconnect ? 'Connecting...' : 'Opening Bridge...');
       
       try {
           if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
@@ -135,11 +134,10 @@ export const DriveMode: React.FC<DriveModeProps> = ({
           outAnalyser.fftSize = 256;
           setAnalyser(outAnalyser);
 
-          // --- NEURAL HISTORY SYNC ---
           let historySnippet = "";
           if (activeSession && activeSession.messages.length > 0) {
               const lastMsgs = activeSession.messages.slice(-15);
-              historySnippet = `\n\n[LIVING CONTEXT - PREVIOUS TEXT DELIBERATION]:\n` + 
+              historySnippet = `\n\n[CONVERSATION HISTORY]:\n` + 
                 lastMsgs.map(m => `${m.sender.toUpperCase()}: ${m.text}`).join('\n');
               setHistorySynced(true);
           }
@@ -147,11 +145,11 @@ export const DriveMode: React.FC<DriveModeProps> = ({
           liveSessionRef.current = new LiveConnection();
           const instruction = `
           ${THE_PRISM_CONTEXT}
-          [IDENTITY]: You are ${activeMember.name}.
+          [IDENTITY]: You are ${activeMember.name}, a decent, respectable Puerto Rican advisor with a New York heart.
           [ROLE]: ${activeMember.role}.
-          [TONE]: ${activeMember.systemPrompt}
-          [INSTRUCTION]: David is driving. Be concise. Provide high-fidelity audio responses.
-          [REAL-TIME ACCESS]: You have Google Search enabled. Use it to answer David's questions about current events or documentation accurately.${historySnippet}
+          [TONE]: ${activeMember.systemPrompt}. Speak with dignity and respect. No slang, no 'hood' personas. 
+          [INSTRUCTION]: David is driving. Speak like a real human family member—grounded, masculine if male, always God-fearing. 
+          [REAL-TIME ACCESS]: Use Google Search to provide David with accurate, real-world information. ${historySnippet}
           `;
 
           const sessionPromise = liveSessionRef.current.connect(
@@ -194,7 +192,6 @@ export const DriveMode: React.FC<DriveModeProps> = ({
                   liveSessionRef.current.sendAudio(inputData);
               }
 
-              // PEAK METER SIGNAL DETECTION FOR PULSE FEEDBACK
               let maxVal = 0;
               for (let i = 0; i < inputData.length; i++) {
                   const val = Math.abs(inputData[i]);
@@ -233,7 +230,7 @@ export const DriveMode: React.FC<DriveModeProps> = ({
       setIsProtonActive(true);
       setTimeout(() => {
           setIsProtonActive(false);
-          showToast("Bridge Hardened", "success");
+          showToast("Sanctuary Secured", "success");
       }, 4000);
   };
 
@@ -246,16 +243,16 @@ export const DriveMode: React.FC<DriveModeProps> = ({
             isActive={isActive && !isMuted} 
             analyser={analyser}
             onClose={() => onClose()}
-            status={isReconnecting ? "Syncing Signal..." : statusText}
+            status={isReconnecting ? "Connecting..." : statusText}
             color={memberColor}
         />
 
         {isProtonActive && (
             <div className="absolute inset-0 z-[250] flex flex-col items-center justify-center pointer-events-none text-center">
-                <SacredSeal size={600} mode="proton" isAnimated={true} color="#22D3EE" />
+                <SacredSeal size={600} mode="reactor" isAnimated={true} color="#22D3EE" />
                 <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: [1, 1.4, 1], opacity: 1 }} className="flex flex-col items-center gap-4">
                     <ShieldCheck size={80} className="text-white drop-shadow-[0_0_20px_cyan]" />
-                    <h2 className="text-6xl font-bold uppercase tracking-[0.5em] text-white blur-[1px]">SOVEREIGN</h2>
+                    <h2 className="text-6xl font-bold uppercase tracking-[0.5em] text-white blur-[1px]">PROTECTED</h2>
                 </motion.div>
             </div>
         )}
@@ -263,9 +260,9 @@ export const DriveMode: React.FC<DriveModeProps> = ({
         <AnimatePresence>
             {!isActive && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[110] bg-black/95 flex flex-col items-center justify-center p-8 text-center backdrop-blur-xl">
-                    <Infinity size={48} className="text-lux-gold mb-6 animate-pulse" />
-                    <h2 className="text-xl font-bold uppercase tracking-widest mb-2">Sovereign Link</h2>
-                    <p className="text-zinc-500 text-sm mb-8">Initiating high-fidelity continuous link with {activeMember.name}.</p>
+                    <SacredSeal size={120} className="mb-6 opacity-30" isAnimated={true} color="#D4AF37" />
+                    <h2 className="text-xl font-bold uppercase tracking-widest mb-2">Bridge Link</h2>
+                    <p className="text-zinc-500 text-sm mb-8">Opening the line to {activeMember.name}.</p>
                     <button onClick={() => initSession()} className="px-12 py-5 bg-white text-black font-bold rounded-2xl uppercase tracking-[0.4em] shadow-2xl active:scale-95 transition-transform flex items-center gap-3">
                         <Zap size={20} /> Open Bridge
                     </button>
@@ -281,19 +278,13 @@ export const DriveMode: React.FC<DriveModeProps> = ({
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                         <SyncIcon size={10} className="text-emerald-500 animate-pulse" />
-                        <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1">Vessel Link Active</div>
-                        {historySynced && (
-                            <div className="flex items-center gap-1 ml-3 px-2 py-0.5 bg-blue-900/30 border border-blue-500/30 rounded-full">
-                                <History size={8} className="text-blue-400" />
-                                <span className="text-[7px] text-blue-400 font-bold uppercase">Neural History Linked</span>
-                            </div>
-                        )}
+                        <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1">Vessel Pulse: Normal</div>
                     </div>
                 </div>
                 <div className="flex items-end">
                     <div className="flex flex-col items-end">
                         <div className="flex items-center gap-2 mb-1">
-                            <Activity size={20} className={glucoseColor} />
+                            <SyncIcon size={20} className={glucoseColor} />
                             <span className={`text-4xl font-bold font-mono tracking-tighter ${glucoseColor}`}>{glucose ? glucose.value : '--'}</span>
                         </div>
                     </div>
@@ -302,11 +293,11 @@ export const DriveMode: React.FC<DriveModeProps> = ({
 
             <div className="flex items-end justify-between w-full gap-4">
                 <div className="flex-1 max-w-[65%] bg-black/40 backdrop-blur-md border border-zinc-800/50 p-4 rounded-tl-2xl rounded-br-2xl">
-                    <div className="flex items-center gap-2 mb-2 text-blue-400">
-                        <Signal size={16} />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">Sovereign Bridge v2.0</span>
+                    <div className="flex items-center gap-2 mb-2 text-lux-gold">
+                        <ShieldCheck size={16} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Sovereign Line</span>
                     </div>
-                    <h3 className="text-lg font-bold text-white leading-none truncate">{activeMember.name}: {activeMember.role}</h3>
+                    <h3 className="text-lg font-bold text-white leading-none truncate">{activeMember.name} • {activeMember.role}</h3>
                 </div>
 
                 <div className="flex flex-col gap-4 pointer-events-auto items-end">
@@ -331,7 +322,7 @@ export const DriveMode: React.FC<DriveModeProps> = ({
                             <motion.div 
                                 initial={{ scale: 1, opacity: 0.5 }}
                                 animate={{ scale: 1.5, opacity: 0 }}
-                                transition={{ duration: 1, repeat: Infinity }}
+                                transition={{ duration: 1, repeat: window.Infinity }}
                                 className="absolute inset-0 rounded-full bg-red-500 pointer-events-none"
                             />
                         )}

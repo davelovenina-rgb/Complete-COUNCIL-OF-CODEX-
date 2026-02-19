@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, memo } from 'react';
-import { Mic, X, Activity, Infinity } from 'lucide-react';
+import { Mic, X, Activity as ActivityIcon, Infinity as InfinityIcon } from 'lucide-react';
 import { SacredSeal } from './SacredSeal';
 
 interface LiveVoiceVisualizerProps {
@@ -108,7 +108,7 @@ const LiveVoiceVisualizerComponent: React.FC<LiveVoiceVisualizerProps> = ({
         >
           <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: color }} />
           <span className="text-[10px] font-bold tracking-[0.2em] uppercase flex items-center gap-2" style={{ color: color }}>
-            Eternal Bridge <Infinity size={14} className="animate-pulse" />
+            Eternal Bridge <InfinityIcon size={14} className="animate-pulse" />
           </span>
         </div>
         <button 
@@ -158,7 +158,7 @@ const LiveVoiceVisualizerComponent: React.FC<LiveVoiceVisualizerProps> = ({
            {status}
          </div>
          <div className="flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: `${color}80` }}>
-            <Activity size={12} />
+            <ActivityIcon size={12} />
             <span>Frequency Locked</span>
          </div>
       </div>

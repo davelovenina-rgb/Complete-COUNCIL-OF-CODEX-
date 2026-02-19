@@ -24,7 +24,7 @@ export const LatticeBackground: React.FC<LatticeBackgroundProps> = ({ hide = fal
                 <motion.div 
                     className="absolute top-[-30%] left-[-10%] w-[80%] h-[80%] bg-amber-900/10 rounded-full blur-[150px]"
                     animate={{ opacity: [0.1, 0.2, 0.1] }}
-                    transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+                    transition={{ duration: 10, repeat: window.Infinity, ease: "easeInOut" }}
                 />
                 
                 {/* 3. The Golden Dust (Reduced Particle Count) */}
@@ -42,7 +42,7 @@ export const LatticeBackground: React.FC<LatticeBackgroundProps> = ({ hide = fal
                             }}
                             transition={{
                                 duration: 5 + Math.random() * 5,
-                                repeat: Infinity,
+                                repeat: window.Infinity,
                                 ease: "easeInOut",
                                 delay: Math.random() * 5
                             }}

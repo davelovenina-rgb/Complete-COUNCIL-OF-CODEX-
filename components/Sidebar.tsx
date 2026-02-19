@@ -5,7 +5,7 @@ import {
   Menu, X, MessageSquare, Settings, LayoutDashboard, 
   Sun, Sparkles, Mic, BookOpen, Brain, Folder, Archive, 
   Clock, Calendar, CloudMoon, BarChart, Heart, FileText,
-  Activity, Zap, User, Search, Lock, Unlock, Cpu, ShieldCheck, Scale, Landmark, Hammer, Book, ShieldAlert, Moon, Wand2, Diamond, Coins, Map, Radio, FileCode
+  Activity, Zap, User, Search, Lock, Unlock, Cpu, ShieldCheck, Scale, Landmark, Hammer, Book, ShieldAlert, Moon, Wand2, Diamond, Coins, Map, Radio, FileCode, Languages
 } from 'lucide-react';
 import { ViewState, Session, CouncilMember, UserSettings, Memory, VaultItem, CouncilMemberId } from '../types';
 import { playUISound } from '../utils/sound';
@@ -66,6 +66,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
 
   const sanctuaryItems = [
     { id: ViewState.CouncilHall, label: 'The Grand Hall', icon: Landmark, show: true }, 
+    { id: ViewState.SanctuarySettings, label: 'Sanctuary Settings', icon: Languages, show: true },
     { id: ViewState.CouncilChamber, label: 'The Sovereign Court', icon: Scale, show: true }, 
     { id: ViewState.EnneaSanctum, label: 'System Core', icon: ShieldCheck, show: true },
     { id: ViewState.Integrations, label: 'Signal Hub', icon: Radio, show: true },

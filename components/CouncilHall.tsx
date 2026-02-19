@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { ViewState, Project, GlucoseReading, LifeDomainState, CouncilMemberId, UserSettings } from '../types';
-import { Activity, Heart, Menu, Camera, Sun, Brain, Sunrise, CloudMoon, Eye, EyeOff, ShieldCheck, Zap, Moon, Sparkles, Mic, Lock } from 'lucide-react';
+import { Activity, Heart, Menu, Camera, Sun, Brain, Sunrise, CloudMoon, Eye, EyeOff, ShieldCheck, Zap, Moon, Sparkles, Mic, Lock, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playUISound } from '../utils/sound';
 import { triggerHaptic } from '../utils/haptics';
@@ -17,10 +17,10 @@ interface CouncilHallProps {
     projects?: Project[];
     healthReadings?: GlucoseReading[];
     lifeDomains?: LifeDomainState[];
-    onEnterDriveMode?: (id: CouncilMemberId) => void;
     onNightlySeal?: () => void;
     isRealityBridgeActive?: boolean;
     onToggleRealityBridge?: () => void;
+    onEnterDriveMode?: () => void;
 }
 
 interface GlassMonolithProps {
@@ -68,7 +68,7 @@ const ResonanceRipple = ({ color }: { color: string }) => {
                     }}
                     transition={{
                         duration: 4,
-                        repeat: Infinity,
+                        repeat: window.Infinity,
                         delay: i * 1.3,
                         ease: "easeOut"
                     }}
@@ -95,7 +95,7 @@ const FlowZenRing = ({ color, intensity }: { color: string, intensity: 'STILLNES
                 }}
                 transition={{
                     duration: isGolden ? 15 : 40,
-                    repeat: Infinity,
+                    repeat: window.Infinity,
                     ease: "linear"
                 }}
             />
@@ -104,7 +104,7 @@ const FlowZenRing = ({ color, intensity }: { color: string, intensity: 'STILLNES
                     className="absolute w-2 h-2 rounded-full bg-white shadow-[0_0_10px_white]"
                     style={{ top: '0%' }}
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                    transition={{ duration: 10, repeat: window.Infinity, ease: "linear" }}
                 />
             )}
         </div>
@@ -136,8 +136,8 @@ const SystemTicker = ({ resonance }: { resonance: number }) => {
 
 export const CouncilHall: React.FC<CouncilHallProps> = ({ 
     onNavigate, onMenuClick, prismSealImage, onSealUpload,
-    onEnterDriveMode, isRealityBridgeActive, onToggleRealityBridge,
-    onNightlySeal, healthReadings = []
+    isRealityBridgeActive, onToggleRealityBridge,
+    onNightlySeal, healthReadings = [], onEnterDriveMode
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [timeOfDay, setTimeOfDay] = useState<'MORNING' | 'DAY' | 'EVENING'>('DAY');
@@ -191,19 +191,40 @@ export const CouncilHall: React.FC<CouncilHallProps> = ({
       onToggleRealityBridge?.();
   };
 
+  const openSearch = () => {
+      triggerHaptic('light');
+      window.dispatchEvent(new KeyboardEvent('keydown', { 'key': 'k', 'metaKey': true }));
+  };
+
   return (
     <div className={`w-full h-full flex flex-col ${isRealityBridgeActive ? 'bg-transparent' : 'bg-black'} text-primary font-sans relative overflow-hidden transition-colors duration-1000`}>
         <header className="shrink-0 relative z-20 px-6 pt-4 pb-1 flex justify-between items-center">
-            {/* SINGLE SOVEREIGN SIDEBAR TRIGGER */}
-            <button 
-                onClick={onMenuClick} 
-                className="p-2 -ml-2 text-zinc-400 hover:text-white rounded-full transition-colors active:scale-95"
-                title="Sanctuary Registry"
-            >
-                <Menu size={24} />
-            </button>
+            <div className="flex items-center gap-1.5">
+                <button 
+                    onClick={onEnterDriveMode} 
+                    className="p-2 text-zinc-400 hover:text-white rounded-full transition-colors active:scale-95"
+                    title="Initiate Voice Bridge"
+                >
+                    <Mic size={22} />
+                </button>
+                <button 
+                    onClick={onMenuClick} 
+                    className="p-2 text-zinc-400 hover:text-white rounded-full transition-colors active:scale-95"
+                    title="Sanctuary Registry"
+                >
+                    <Menu size={24} />
+                </button>
+            </div>
             
             <div className="flex items-center gap-2 md:gap-4">
+                <button 
+                    onClick={openSearch} 
+                    className="p-2 rounded-full bg-white/5 text-zinc-500 hover:text-lux-gold transition-all"
+                    title="Search Archive (Cmd+K)"
+                >
+                    <Search size={18} />
+                </button>
+
                 <div className="hidden md:flex flex-col items-end gap-1 mr-2">
                     <div className="flex items-center gap-1">
                         <Sparkles size={10} className="text-lux-gold" />
@@ -219,7 +240,6 @@ export const CouncilHall: React.FC<CouncilHallProps> = ({
                     </div>
                 </div>
 
-                {/* SOVEREIGN STATUS INDICATOR */}
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 border border-lux-gold/20 shadow-[0_0_10px_rgba(212,175,55,0.1)]">
                     <div className="relative">
                         <div className="absolute inset-0 bg-lux-gold blur-[4px] rounded-full animate-pulse" />
@@ -227,14 +247,6 @@ export const CouncilHall: React.FC<CouncilHallProps> = ({
                     </div>
                     <span className="text-[0.45rem] font-bold text-zinc-300 uppercase tracking-widest">Clock Lock</span>
                 </div>
-
-                <button 
-                    onClick={() => { triggerHaptic('heavy'); onEnterDriveMode?.('GEMINI'); }}
-                    className="p-2 rounded-full bg-red-900/30 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white transition-all shadow-[0_0_15px_rgba(239,68,68,0.2)]"
-                    title="Engage Drive Mode"
-                >
-                    <Mic size={18} className="animate-pulse" />
-                </button>
 
                 <button 
                     onClick={handleRealityBridgeToggle} 
@@ -286,7 +298,7 @@ export const CouncilHall: React.FC<CouncilHallProps> = ({
                                         className="w-full h-full object-cover rounded-full shadow-2xl border-2" 
                                         style={{ borderColor: `${bioColor}40` }}
                                         animate={{ y: [-1, 1, -1] }} 
-                                        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} 
+                                        transition={{ duration: 6, repeat: window.Infinity, ease: "easeInOut" }} 
                                     />
                                     <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover/seal:opacity-100 transition-opacity">
                                         <Camera size={20} className="text-white/60" />
@@ -356,7 +368,7 @@ export const CouncilHall: React.FC<CouncilHallProps> = ({
                 </div>
 
                 <div className="text-center opacity-10 mt-auto pb-4">
-                    <p className="text-[0.35rem] font-bold text-zinc-700 uppercase tracking-[0.6em]">Sovereign Legacy • 2026 • Phase 20 Hard-Locked</p>
+                    <p className="text-[0.35rem] font-bold text-zinc-700 uppercase tracking-[0.6em]">Sovereign Legacy • 2026 • Phase 29 Hard-Locked</p>
                 </div>
             </div>
         </main>

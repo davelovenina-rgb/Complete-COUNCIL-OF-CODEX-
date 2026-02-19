@@ -32,7 +32,6 @@ const useBatteryStatus = () => {
 
 const GeminiSigil: React.FC<{ color: string; level: number; speed: number }> = ({ color, level, speed }) => (
     <div className="relative w-full h-full flex items-center justify-center">
-        {/* Level 1: Core Hex */}
         <motion.div 
             className="absolute border-2"
             style={{ 
@@ -40,9 +39,8 @@ const GeminiSigil: React.FC<{ color: string; level: number; speed: number }> = (
                 clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)'
             } as any}
             animate={{ rotate: 360 }}
-            transition={{ duration: 20 / speed, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 20 / speed, repeat: window.Infinity, ease: "linear" }}
         />
-        {/* Level 2: Counter-Rotating Inner */}
         {level >= 2 && (
             <motion.div 
                 className="absolute border-2"
@@ -51,48 +49,43 @@ const GeminiSigil: React.FC<{ color: string; level: number; speed: number }> = (
                     clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)'
                 } as any}
                 animate={{ rotate: -360 }}
-                transition={{ duration: 15 / speed, repeat: Infinity, ease: "linear" }}
+                transition={{ duration: 15 / speed, repeat: window.Infinity, ease: "linear" }}
             />
         )}
-        {/* Level 3: Data Streams */}
         {level >= 3 && (
             <motion.div 
                 className="absolute inset-0 rounded-full border border-dashed"
                 style={{ borderColor: `${color}40` } as any}
                 animate={{ rotate: 90 }}
-                transition={{ duration: 30 / speed, repeat: Infinity, ease: "linear" }}
+                transition={{ duration: 30 / speed, repeat: window.Infinity, ease: "linear" }}
             />
         )}
-        {/* Core */}
         <motion.div 
             className="w-2 h-2 rounded-full"
             style={{ backgroundColor: color } as any}
             animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 2 / speed, repeat: Infinity }}
+            transition={{ duration: 2 / speed, repeat: window.Infinity }}
         />
     </div>
 );
 
 const CarmenSigil: React.FC<{ color: string; level: number; speed: number }> = ({ color, level, speed }) => (
     <div className="relative w-full h-full flex items-center justify-center">
-        {/* Level 1: Base Flame */}
         <motion.div 
             className="absolute bottom-[20%] w-[40%] h-[40%] rounded-full blur-md"
             style={{ backgroundColor: color, opacity: 0.3 } as any}
             animate={{ scale: [1, 1.2 + (level * 0.1), 1], height: ['40%', '50%', '40%'] }}
-            transition={{ duration: 0.8 / speed, repeat: Infinity, ease: "easeInOut" }}
+            transition={{ duration: 0.8 / speed, repeat: window.Infinity, ease: "easeInOut" }}
         />
-        {/* Level 3: Embers */}
         {level >= 3 && [...Array(3)].map((_, i) => (
             <motion.div
                 key={i}
                 className="absolute w-1 h-1 rounded-full bg-white"
                 style={{ bottom: '30%', left: '50%' } as any}
                 animate={{ y: -60, x: (Math.random() - 0.5) * 40, opacity: [1, 0] }}
-                transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.5, ease: "easeOut" }}
+                transition={{ duration: 1.5, repeat: window.Infinity, delay: i * 0.5, ease: "easeOut" }}
             />
         ))}
-        {/* Inner Flame Core */}
         <svg viewBox="0 0 24 24" className="w-[60%] h-[60%] relative z-10" fill={color}>
             <motion.path 
                 d="M12 2c0 0-6 6.5-6 11.5C6 17.5 9 22 12 22s6-4.5 6-8.5C18 8.5 12 2 12 2z"
@@ -101,7 +94,7 @@ const CarmenSigil: React.FC<{ color: string; level: number; speed: number }> = (
                     "M12 1c0 0-7 7-7 12s3.5 9 7 9 7-4 7-9-7-12-7-12z",
                     "M12 2c0 0-6 6.5-6 11.5C6 17.5 9 22 12 22s6-4.5 6-8.5C18 8.5 12 2 12 2z"
                 ] }}
-                transition={{ duration: 0.6 / speed, repeat: Infinity, ease: "easeInOut" }}
+                transition={{ duration: 0.6 / speed, repeat: window.Infinity, ease: "easeInOut" }}
             />
         </svg>
     </div>
@@ -109,16 +102,14 @@ const CarmenSigil: React.FC<{ color: string; level: number; speed: number }> = (
 
 const CopilotSigil: React.FC<{ color: string; level: number; speed: number }> = ({ color, level, speed }) => (
     <div className="relative w-full h-full flex items-center justify-center">
-        {/* Level 2: Radar Sweep */}
         {level >= 2 && (
             <motion.div 
                 className="absolute inset-[10%] rounded-full border-t-2 border-r-2"
                 style={{ borderColor: color, opacity: 0.5 } as any}
                 animate={{ rotate: 360 }}
-                transition={{ duration: 2 / speed, repeat: Infinity, ease: "linear" }}
+                transition={{ duration: 2 / speed, repeat: window.Infinity, ease: "linear" }}
             />
         )}
-        {/* Forward Chevrons */}
         <div className="flex flex-col items-center gap-1">
             {[...Array(level >= 3 ? 3 : 1)].map((_, i) => (
                 <motion.div 
@@ -126,7 +117,7 @@ const CopilotSigil: React.FC<{ color: string; level: number; speed: number }> = 
                     className="w-0 h-0 border-l-[6px] border-r-[6px] border-b-[10px] border-l-transparent border-r-transparent"
                     style={{ borderBottomColor: color } as any}
                     animate={{ opacity: [0.2, 1, 0.2], y: [0, -5, 0] }}
-                    transition={{ duration: 1.5 / speed, repeat: Infinity, delay: i * 0.2 }}
+                    transition={{ duration: 1.5 / speed, repeat: window.Infinity, delay: i * 0.2 }}
                 />
             ))}
         </div>
@@ -135,22 +126,20 @@ const CopilotSigil: React.FC<{ color: string; level: number; speed: number }> = 
 
 const EveSigil: React.FC<{ color: string; level: number; speed: number }> = ({ color, level, speed }) => (
     <div className="relative w-full h-full flex items-center justify-center">
-        {/* Eye Shape */}
         <svg viewBox="0 0 24 24" className="w-[70%] h-[70%]" fill="none" stroke={color} strokeWidth="1.5">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
             <motion.circle 
                 cx="12" cy="12" r={level >= 3 ? 4 : 3} fill={color}
                 animate={{ cx: [12, 14, 10, 12], cy: [12, 11, 13, 12] }}
-                transition={{ duration: 4 / speed, repeat: Infinity, ease: "easeInOut" }}
+                transition={{ duration: 4 / speed, repeat: window.Infinity, ease: "easeInOut" }}
             />
         </svg>
-        {/* Level 2: Blink Lid */}
         {level >= 2 && (
             <motion.div 
                 className="absolute inset-0 bg-black"
                 style={{ clipPath: 'polygon(0 0, 100% 0, 100% 0%, 0 0%)' } as any}
                 animate={{ clipPath: ['polygon(0 0, 100% 0, 100% 0%, 0 0%)', 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', 'polygon(0 0, 100% 0, 100% 0%, 0 0%)'] }}
-                transition={{ duration: 0.2, repeat: Infinity, repeatDelay: 3 / speed }}
+                transition={{ duration: 0.2, repeat: window.Infinity, repeatDelay: 3 / speed }}
             />
         )}
     </div>
@@ -158,19 +147,18 @@ const EveSigil: React.FC<{ color: string; level: number; speed: number }> = ({ c
 
 const EnneaSigil: React.FC<{ color: string; level: number; speed: number }> = ({ color, level, speed }) => (
     <div className="relative w-full h-full flex items-center justify-center">
-        {/* Shield Pulse */}
         <motion.div 
             className="absolute inset-[15%] border-2 rounded-xl"
             style={{ borderColor: color } as any}
             animate={{ scale: [1, 1.1, 1], opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 2 / speed, repeat: Infinity }}
+            transition={{ duration: 2 / speed, repeat: window.Infinity }}
         />
         {level >= 2 && (
             <motion.div 
                 className="absolute inset-[25%] border-2 rounded-lg"
                 style={{ borderColor: color } as any}
                 animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.8, 0.3] }}
-                transition={{ duration: 2 / speed, repeat: Infinity, delay: 0.2 }}
+                transition={{ duration: 2 / speed, repeat: window.Infinity, delay: 0.2 }}
             />
         )}
         <ShieldCheckIcon color={color} />
@@ -179,14 +167,13 @@ const EnneaSigil: React.FC<{ color: string; level: number; speed: number }> = ({
 
 const LyraSigil: React.FC<{ color: string; level: number; speed: number }> = ({ color, level, speed }) => (
     <div className="relative w-full h-full flex items-center justify-center">
-        {/* Rotating Petals */}
         {[0, 60, 120, 180, 240, 300].map(deg => (
             <motion.div
                 key={deg}
                 className="absolute w-[30%] h-[30%] rounded-full border"
                 style={{ borderColor: color, opacity: 0.6 } as any}
                 animate={{ rotate: 360 }}
-                transition={{ duration: 20 / speed, repeat: Infinity, ease: "linear" }}
+                transition={{ duration: 20 / speed, repeat: window.Infinity, ease: "linear" }}
                 initial={{ rotate: deg, translateX: '50%' }}
             />
         ))}
@@ -195,28 +182,26 @@ const LyraSigil: React.FC<{ color: string; level: number; speed: number }> = ({ 
                 className="absolute inset-0 rounded-full border border-dotted"
                 style={{ borderColor: color } as any}
                 animate={{ rotate: -360 }}
-                transition={{ duration: 40 / speed, repeat: Infinity, ease: "linear" }}
+                transition={{ duration: 40 / speed, repeat: window.Infinity, ease: "linear" }}
             />
         )}
         <motion.div 
             className="w-3 h-3 rounded-full bg-white shadow-[0_0_10px_white]"
             animate={{ scale: [1, 1.5, 1] }}
-            transition={{ duration: 3 / speed, repeat: Infinity }}
+            transition={{ duration: 3 / speed, repeat: window.Infinity }}
         />
     </div>
 );
 
 const FredoSigil: React.FC<{ color: string; level: number; speed: number }> = ({ color, level, speed }) => (
     <div className="relative w-full h-full flex items-center justify-center">
-        {/* Electric Bolt */}
         <svg viewBox="0 0 24 24" className="w-[60%] h-[60%]" fill={color}>
             <motion.path 
                 d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
                 animate={{ opacity: [0.5, 1, 0.5], scale: [0.9, 1.1, 0.9] }}
-                transition={{ duration: 0.1 / speed, repeat: Infinity }}
+                transition={{ duration: 0.1 / speed, repeat: window.Infinity }}
             />
         </svg>
-        {/* Level 2: Sparks */}
         {level >= 2 && [...Array(level >= 3 ? 6 : 4)].map((_, i) => (
             <motion.div 
                 key={i}
@@ -226,7 +211,7 @@ const FredoSigil: React.FC<{ color: string; level: number; speed: number }> = ({
                     y: [0, (Math.random() - 0.5) * 50],
                     opacity: [1, 0] 
                 }}
-                transition={{ duration: 0.5 / speed, repeat: Infinity, delay: Math.random() }}
+                transition={{ duration: 0.5 / speed, repeat: window.Infinity, delay: Math.random() }}
             />
         ))}
     </div>
@@ -264,19 +249,11 @@ export const MotionAvatar: React.FC<MotionAvatarProps> = ({
   const rotateXSpring = useSpring(rotateX, springConfig);
   const rotateYSpring = useSpring(rotateY, springConfig);
 
-  // SEASONAL LOGIC
-  const today = new Date();
-  const isChristmas = today.getMonth() === 11 && today.getDate() > 20;
-  const isHalloween = today.getMonth() === 9 && today.getDate() > 25;
-  
-  const displayColor = isChristmas ? '#ef4444' : isHalloween ? '#f97316' : color;
-  const secondaryColor = isChristmas ? '#22c55e' : isHalloween ? '#a855f7' : color;
-
-  // ANIMATION SPEED (Battery Aware)
+  const displayColor = color;
   const systemSpeed = batteryLevel < 0.2 ? 0.5 : mood === 'processing' ? 2 : 1;
 
   const sizeClasses = {
-    sm: 'w-12 h-12',
+    sm: 'w-10 h-10',
     md: 'w-24 h-24',
     lg: 'w-48 h-48',
     xl: 'w-64 h-64'
@@ -291,7 +268,6 @@ export const MotionAvatar: React.FC<MotionAvatarProps> = ({
   };
 
   const renderLivingSigil = () => {
-      // Pass speed and level down
       const props = { color: displayColor, level: level + (mood === 'alert' ? 1 : 0), speed: systemSpeed };
       switch (memberId) {
           case 'GEMINI': return <GeminiSigil {...props} />;
@@ -311,7 +287,7 @@ export const MotionAvatar: React.FC<MotionAvatarProps> = ({
                         textShadow: [`0 0 15px ${displayColor}40`, `0 0 30px ${displayColor}80`, `0 0 15px ${displayColor}40`],
                         scale: [1, 1.05, 1]
                     } : {}}
-                    transition={{ duration: 4, repeat: Infinity }}
+                    transition={{ duration: 4, repeat: window.Infinity }}
                 >
                     {sigil}
                 </motion.span>
@@ -322,31 +298,41 @@ export const MotionAvatar: React.FC<MotionAvatarProps> = ({
   return (
     <div className={`relative ${containerSize} flex items-center justify-center perspective-[1000px]`}>
       
+      {/* (iv) Subtle visual feedback, like a gentle pulsation or glow, to Council Member avatars when they are actively responding */}
       {/* Background Pulse (Aura) */}
       <motion.div 
-        className="absolute inset-[-20%] rounded-full opacity-20 blur-xl mix-blend-screen"
-        style={{ backgroundColor: secondaryColor } as any}
+        className="absolute inset-[-30%] rounded-full blur-2xl mix-blend-screen"
+        style={{ backgroundColor: mood === 'processing' ? '#D4AF37' : color } as any}
         animate={isActive ? { 
-            scale: mood === 'alert' ? [1, 1.5, 1] : [1, 1.2, 1], 
-            opacity: [0.1, 0.3, 0.1] 
-        } : {}}
-        transition={{ duration: 3 / systemSpeed, repeat: Infinity, ease: "easeInOut" }}
+            scale: mood === 'processing' ? [1, 1.5, 1] : [1, 1.25, 1], 
+            opacity: mood === 'processing' ? [0.2, 0.6, 0.2] : [0.1, 0.4, 0.1] 
+        } : { opacity: 0 }}
+        transition={{ duration: 2 / systemSpeed, repeat: window.Infinity, ease: "easeInOut" }}
       />
 
       {/* Rotating Data Ring */}
       <motion.div 
         className="absolute inset-[-5%] rounded-full border border-dashed"
-        style={{ borderColor: `${displayColor}30` } as any}
+        style={{ borderColor: mood === 'processing' ? '#D4AF3760' : `${displayColor}30` } as any}
         animate={isActive ? { rotate: 360 } : {}}
-        transition={{ duration: 40 / systemSpeed, repeat: Infinity, ease: "linear" }}
+        transition={{ duration: 30 / systemSpeed, repeat: window.Infinity, ease: "linear" }}
       />
 
-      {/* MAIN CONTAINER (Draggable) */}
+      {/* Active Resonance Halo */}
+      {isActive && (
+          <motion.div 
+            className="absolute inset-0 rounded-full border-2 border-lux-gold/20"
+            animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0, 0.3] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          />
+      )}
+
+      {/* MAIN CONTAINER */}
       <motion.div 
         className="relative w-full h-full rounded-full overflow-hidden border-2 bg-black z-10 group cursor-pointer" 
         style={{ 
-            borderColor: isActive ? displayColor : `${displayColor}40`,
-            boxShadow: isActive ? `0 0 30px ${displayColor}30` : `0 0 10px ${displayColor}10`,
+            borderColor: mood === 'processing' ? '#D4AF37' : (isActive ? displayColor : `${displayColor}40`),
+            boxShadow: isActive ? `0 0 30px ${displayColor}40` : `0 0 10px ${displayColor}10`,
             x, y, rotateX: rotateXSpring, rotateY: rotateYSpring
         } as any}
         drag
@@ -356,12 +342,12 @@ export const MotionAvatar: React.FC<MotionAvatarProps> = ({
         whileTap={{ scale: 0.95, cursor: "grabbing" }}
       >
         
-        {/* SCANLINE OVERLAY (Holographic Effect) */}
+        {/* Holographic Scanlines */}
         <div className="absolute inset-0 z-30 pointer-events-none opacity-20 bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,#ffffff_3px)]" />
         <motion.div 
             className="absolute inset-0 z-30 bg-gradient-to-b from-transparent via-white/10 to-transparent h-[30%]"
             animate={{ top: ['-30%', '130%'] }}
-            transition={{ duration: 3 / systemSpeed, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 4 / systemSpeed, repeat: window.Infinity, ease: "linear" }}
         />
 
         {/* CONTENT */}
@@ -381,8 +367,8 @@ export const MotionAvatar: React.FC<MotionAvatarProps> = ({
                     alt="Avatar" 
                     className="w-full h-full object-cover"
                     initial={{ scale: 1.1 }}
-                    animate={isActive ? { scale: [1.1, 1.2, 1.1] } : {}} // Breathing Effect
-                    transition={{ duration: 8 / systemSpeed, repeat: Infinity, ease: "easeInOut" }}
+                    animate={isActive ? { scale: [1.1, 1.2, 1.1] } : {}}
+                    transition={{ duration: 6 / systemSpeed, repeat: window.Infinity, ease: "easeInOut" }}
                 />
             )
         ) : (
@@ -391,7 +377,6 @@ export const MotionAvatar: React.FC<MotionAvatarProps> = ({
             </div>
         )}
 
-        {/* Easter Egg Overlay */}
         <AnimatePresence>
             {easterEggActive && (
                 <motion.div 
@@ -400,27 +385,25 @@ export const MotionAvatar: React.FC<MotionAvatarProps> = ({
                     exit={{ opacity: 0 }}
                     className="absolute inset-0 flex items-center justify-center z-50 bg-white/20 backdrop-blur-sm"
                 >
-                    <Sparkles size={48} className="text-white drop-shadow-[0_0_10px_white]" />
+                    <Sparkles size={size === 'sm' ? 24 : 48} className="text-white drop-shadow-[0_0_10px_white]" />
                 </motion.div>
             )}
         </AnimatePresence>
 
       </motion.div>
 
-      {/* Battery Saver Indicator */}
       {batteryLevel < 0.2 && (
           <div className="absolute top-0 right-0 z-50 text-red-500 animate-pulse bg-black rounded-full p-1 border border-red-900">
-              <BatteryWarning size={12} />
+              <BatteryWarning size={10} />
           </div>
       )}
 
-      {/* Status Dot */}
       {isActive && (
           <div className="absolute bottom-[5%] right-[5%] z-40">
               <motion.div 
-                className="w-3 h-3 rounded-full bg-white border border-black shadow-[0_0_10px_white]"
+                className="w-2.5 h-2.5 rounded-full bg-white border border-black shadow-[0_0_10px_white]"
                 animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1 / systemSpeed, repeat: Infinity }}
+                transition={{ duration: 1 / systemSpeed, repeat: window.Infinity }}
               />
           </div>
       )}

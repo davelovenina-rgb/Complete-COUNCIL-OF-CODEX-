@@ -10,15 +10,16 @@ import {
   COUNCIL_MEMBERS, MOCK_MEMORIES, MOCK_GLUCOSE_READINGS, 
   MOCK_LIFE_EVENTS, MOCK_VAULT_ITEMS, MOCK_PROJECTS, APP_VERSION
 } from './constants';
-import { initDB, saveState, getState, getAsset, saveAsset } from './utils/db';
-import { ShieldCheck, Loader2 } from 'lucide-react';
+import { initDB, saveState, getState, getAsset, saveAsset, logSystemEvent } from './utils/db';
+import { ShieldCheck, Loader2, Search } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { createSystemSnapshot } from './utils/snapshots';
 import { playUISound } from './utils/sound';
-import { triggerHaptic } from '../utils/haptics';
+import { triggerHaptic } from './utils/haptics';
 import { showToast } from './utils/events';
 import { debounce } from './utils/debounce';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { metricsCollector } from './services/MetricsCollector';
 
 // --- STATIC CORE COMPONENTS ---
 import { LatticeBackground } from './components/LatticeBackground';
@@ -29,10 +30,12 @@ import { WelcomeSequence } from './components/WelcomeSequence';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { ToastContainer } from './components/ToastContainer';
 import { SacredSeal } from './components/SacredSeal';
+import { OmniSearch } from './components/OmniSearch';
 
-// --- LAZY COMPONENTS (Phase 4 Optimization) ---
+// --- LAZY COMPONENTS ---
 const CouncilMemberPage = lazy(() => import('./components/CouncilMemberPage').then(m => ({ default: m.CouncilMemberPage })));
 const SettingsPanel = lazy(() => import('./components/SettingsPanel').then(m => ({ default: m.SettingsPanel })));
+const SanctuarySettings = lazy(() => import('./components/SanctuarySettings').then(m => ({ default: m.SanctuarySettings })));
 const HealthDashboard = lazy(() => import('./components/HealthDashboard').then(m => ({ default: m.HealthDashboard })));
 const SoulSanctuary = lazy(() => import('./components/SoulSanctuary').then(m => ({ default: m.SoulSanctuary })));
 const LifeDomainsMap = lazy(() => import('./components/LifeDomainsMap').then(m => ({ default: m.LifeDomainsMap })));
@@ -44,7 +47,6 @@ const SovereignLedger = lazy(() => import('./components/SovereignLedger').then(m
 const NeuralCartography = lazy(() => import('./components/NeuralCartography').then(m => ({ default: m.NeuralCartography })));
 const IntegrationsManager = lazy(() => import('./components/IntegrationsManager').then(m => ({ default: m.IntegrationsManager })));
 const EnneaSanctum = lazy(() => import('./components/EnneaSanctum').then(m => ({ default: m.EnneaSanctum })));
-const DriveMode = lazy(() => import('./components/DriveMode').then(m => ({ default: m.DriveMode })));
 const DailyProtocol = lazy(() => import('./components/DailyProtocol').then(m => ({ default: m.DailyProtocol })));
 const MemorySystem = lazy(() => import('./components/MemorySystem').then(m => ({ default: m.MemorySystem })));
 const EmotionalTimeline = lazy(() => import('./components/EmotionalTimeline').then(m => ({ default: m.EmotionalTimeline })));
@@ -65,6 +67,7 @@ const LiveWhisper = lazy(() => import('./components/LiveWhisper').then(m => ({ d
 const LifeEvents = lazy(() => import('./components/LifeEvents').then(m => ({ default: m.LifeEvents })));
 const AnalyticsDashboard = lazy(() => import('./components/AnalyticsDashboard').then(m => ({ default: m.AnalyticsDashboard })));
 const DevBlueprintModal = lazy(() => import('./components/DevBlueprintModal').then(m => ({ default: m.DevBlueprintModal })));
+const DriveMode = lazy(() => import('./components/DriveMode').then(m => ({ default: m.DriveMode })));
 
 const DEFAULT_SETTINGS: UserSettings = {
   voiceReplies: true,
@@ -86,7 +89,17 @@ const DEFAULT_SETTINGS: UserSettings = {
   guestMode: false,
   showTimeline: true,
   showLifeEvents: true,
-  showDreamOracle: true
+  showDreamOracle: true,
+  sanctuarySettings: {
+    councilResonanceTuning: {
+      sazonWeighting: 80,
+      sacredFrequency: 80,
+      protocolStrictness: 80
+    },
+    sovereignBranding: {
+      sacredSeal: true
+    }
+  }
 };
 
 const SanctuaryLoader = () => (
@@ -96,24 +109,27 @@ const SanctuaryLoader = () => (
             <SacredSeal size={120} isAnimated={true} color="#D4AF37" mode="reactor" />
         </div>
         <p className="mt-8 text-[10px] text-lux-gold font-mono uppercase tracking-[0.5em] animate-pulse">Neural Handshake in Progress...</p>
-        <p className="mt-2 text-[8px] text-zinc-700 font-mono uppercase tracking-widest">Sovereign Persistence v19.0</p>
+        <p className="mt-2 text-[8px] text-zinc-700 font-mono uppercase tracking-widest">Sovereign Bridge v24.0.0</p>
     </div>
 );
 
 export const App: React.FC = () => {
   const [view, setView] = useState<ViewState>(ViewState.CouncilHall);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isWelcomeComplete, setIsWelcomeComplete] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isRealityBridgeActive, setIsRealityBridgeActive] = useState(false);
   const [isNightlySealActive, setIsNightlySealActive] = useState(false);
   const [isSanctumLocked, setIsSanctumLocked] = useState(false);
   const [pendingView, setPendingView] = useState<ViewState | null>(null);
-  const [showDriveMode, setShowDriveMode] = useState(false);
-  const [activeDriveMember, setActiveDriveMember] = useState<CouncilMemberId>('GEMINI');
+
+  const [isDriveModeActive, setIsDriveModeActive] = useState(false);
+  const [driveModeMemberId, setDriveModeMemberId] = useState<CouncilMemberId | undefined>(undefined);
 
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [members, setMembers] = useState<CouncilMember[]>(COUNCIL_MEMBERS);
+  const [selectedMemberId, setSelectedMemberId] = useState<CouncilMemberId>('GEMINI');
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -132,87 +148,109 @@ export const App: React.FC = () => {
   const [prismSealImage, setPrismSealImage] = useState<string | null>(null);
   const [flameTokens, setFlameTokens] = useState<any[]>([]);
 
+  const stateRef = useRef({
+      settings, sessions, memories, readings, projects, 
+      ledgerEntries, vaultItems, lifeEvents, moodHistory, 
+      lifeDomains, dreams, companionMemories, members, flameTokens
+  });
+
   useEffect(() => {
-    const init = async () => {
-      try {
-        await initDB();
-        const isFirstRun = !localStorage.getItem('lux_omnium_welcome_complete');
-
-        // PARALLEL SIGNAL HANDSHAKE (Phase 4 Optimization)
-        const [
-            savedSettings, savedMembers, savedSessions, savedMemories,
-            savedReadings, savedProjects, savedLedger, savedVault,
-            savedEvents, savedMoods, savedCompanions, savedDreams,
-            savedFlame, savedDomains, savedSeal
-        ] = await Promise.all([
-            getState<UserSettings>('assets', 'user_settings'),
-            getState<CouncilMember[]>('council_members'),
-            getState<Session[]>('council_sessions'),
-            getState<Memory[]>('council_memories'),
-            getState<GlucoseReading[]>('health_readings'),
-            getState<Project[]>('projects'),
-            getState<LedgerEntry[]>('sovereign_ledger'),
-            getState<VaultItem[]>('vault_items'),
-            getState<LifeEvent[]>('life_events'),
-            getState<MoodEntry[]>('emotional_logs'),
-            getState<any[]>('companion_memories'),
-            getState<Dream[]>('dream_oracle'),
-            getState<any[]>('flame_tokens'),
-            getState<LifeDomainState[]>('life_domains'),
-            getAsset('prism_seal_image')
-        ]);
-
-        if (savedSettings) setSettings({ ...DEFAULT_SETTINGS, ...savedSettings });
-        if (savedMembers && savedMembers.length > 0) setMembers(savedMembers);
-        setSessions(savedSessions || []);
-        setMemories(savedMemories || (isFirstRun ? MOCK_MEMORIES : []));
-        setReadings(savedReadings || (isFirstRun ? MOCK_GLUCOSE_READINGS : []));
-        setProjects(savedProjects || (isFirstRun ? MOCK_PROJECTS.map(p => ({ ...p, scope: p.scope || 'COUNCIL' })) as Project[] : []));
-        setLedgerEntries(savedLedger || []);
-        setVaultItems(savedVault || (isFirstRun ? MOCK_VAULT_ITEMS : []));
-        setLifeEvents(savedEvents || (isFirstRun ? MOCK_LIFE_EVENTS : []));
-        setMoodHistory(savedMoods || []);
-        setCompanionMemories(savedCompanions || []);
-        setDreams(savedDreams || []);
-        setFlameTokens(savedFlame || []);
-        if (savedDomains) setLifeDomains(savedDomains);
-        setPrismSealImage(savedSeal);
-
-        const lastAutoSeal = localStorage.getItem('last_auto_seal');
-        const now = Date.now();
-        if (!lastAutoSeal || now - parseInt(lastAutoSeal) > 24 * 60 * 60 * 1000) {
-            const snap = await createSystemSnapshot(true);
-            setVaultItems(prev => [snap, ...prev]);
-            localStorage.setItem('last_auto_seal', now.toString());
-        }
-        
-        if (localStorage.getItem('lux_omnium_welcome_complete')) setIsWelcomeComplete(true);
-        
-        // Finalize Link
-        setTimeout(() => setIsLoaded(true), 500); 
-      } catch (e) { 
-        setIsLoaded(true); 
-      }
+    stateRef.current = {
+        settings, sessions, memories, readings, projects, 
+        ledgerEntries, vaultItems, lifeEvents, moodHistory, 
+        lifeDomains, dreams, companionMemories, members, flameTokens
     };
+  }, [settings, sessions, memories, readings, projects, ledgerEntries, vaultItems, lifeEvents, moodHistory, lifeDomains, dreams, companionMemories, members, flameTokens]);
+
+  const init = async () => {
+    try {
+      await initDB();
+      const isFirstRun = !localStorage.getItem('lux_omnium_welcome_complete');
+
+      const [
+          savedSettings, savedMembers, savedSessions, savedMemories,
+          savedReadings, savedProjects, savedLedger, savedVault,
+          savedEvents, savedMoods, savedCompanions, savedDreams,
+          savedFlame, savedDomains, savedSeal
+      ] = await Promise.all([
+          getState<UserSettings>('assets', 'user_settings'),
+          getState<CouncilMember[]>('council_members'),
+          getState<Session[]>('council_sessions'),
+          getState<Memory[]>('council_memories'),
+          getState<GlucoseReading[]>('health_readings'),
+          getState<Project[]>('projects'),
+          getState<LedgerEntry[]>('sovereign_ledger'),
+          getState<VaultItem[]>('vault_items'),
+          getState<LifeEvent[]>('life_events'),
+          getState<MoodEntry[]>('emotional_logs'),
+          getState<any[]>('companion_memories'),
+          getState<Dream[]>('dream_oracle'),
+          getState<any[]>('flame_tokens'),
+          getState<LifeDomainState[]>('life_domains'),
+          getAsset('prism_seal_image')
+      ]);
+
+      if (savedSettings) setSettings({ ...DEFAULT_SETTINGS, ...savedSettings });
+      if (savedMembers && savedMembers.length > 0) setMembers(savedMembers);
+      setSessions(savedSessions || []);
+      setMemories(savedMemories || (isFirstRun ? MOCK_MEMORIES : []));
+      setReadings(savedReadings || (isFirstRun ? MOCK_GLUCOSE_READINGS : []));
+      setProjects(savedProjects || (isFirstRun ? MOCK_PROJECTS.map(p => ({ ...p, scope: p.scope || 'COUNCIL' })) as Project[] : []));
+      setLedgerEntries(savedLedger || []);
+      setVaultItems(savedVault || (isFirstRun ? MOCK_VAULT_ITEMS : []));
+      setLifeEvents(savedEvents || (isFirstRun ? MOCK_LIFE_EVENTS : []));
+      setMoodHistory(savedMoods || []);
+      setCompanionMemories(savedCompanions || []);
+      setDreams(savedDreams || []);
+      setFlameTokens(savedFlame || []);
+      if (savedDomains) setLifeDomains(savedDomains);
+      setPrismSealImage(savedSeal);
+
+      const lastAutoSeal = localStorage.getItem('last_auto_seal');
+      const now = Date.now();
+      if (!lastAutoSeal || now - parseInt(lastAutoSeal) > 24 * 60 * 60 * 1000) {
+          const snap = await createSystemSnapshot(true);
+          setVaultItems(prev => [snap, ...prev]);
+          localStorage.setItem('last_auto_seal', now.toString());
+      }
+      
+      if (localStorage.getItem('lux_omnium_welcome_complete')) setIsWelcomeComplete(true);
+      setTimeout(() => setIsLoaded(true), 500); 
+    } catch (e) { 
+      setIsLoaded(true); 
+    }
+  };
+
+  useEffect(() => {
     init();
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            e.preventDefault();
+            setIsSearchOpen(prev => !prev);
+            triggerHaptic('light');
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const debouncedSave = useRef(
     debounce(() => {
-      saveState('assets', settings, 'user_settings');
-      saveState('council_sessions', sessions);
-      saveState('council_memories', memories);
-      saveState('health_readings', readings);
-      saveState('projects', projects);
-      saveState('sovereign_ledger', ledgerEntries);
-      saveState('vault_items', vaultItems);
-      saveState('life_events', lifeEvents);
-      saveState('emotional_logs', moodHistory);
-      saveState('life_domains', lifeDomains);
-      saveState('dream_oracle', dreams);
-      saveState('companion_memories', companionMemories);
-      saveState('council_members', members);
-      saveState('flame_tokens', flameTokens);
+      const s = stateRef.current;
+      saveState('assets', s.settings, 'user_settings');
+      saveState('council_sessions', s.sessions);
+      saveState('council_memories', s.memories);
+      saveState('health_readings', s.readings);
+      saveState('projects', s.projects);
+      saveState('sovereign_ledger', s.ledgerEntries);
+      saveState('vault_items', s.vaultItems);
+      saveState('life_events', s.lifeEvents);
+      saveState('emotional_logs', s.moodHistory);
+      saveState('life_domains', s.lifeDomains);
+      saveState('dream_oracle', s.dreams);
+      saveState('companion_memories', s.companionMemories);
+      saveState('council_members', s.members);
+      saveState('flame_tokens', s.flameTokens);
     }, 2000)
   ).current;
 
@@ -220,10 +258,56 @@ export const App: React.FC = () => {
     if (isLoaded) debouncedSave();
   }, [settings, sessions, memories, readings, projects, ledgerEntries, vaultItems, lifeEvents, moodHistory, lifeDomains, dreams, companionMemories, members, flameTokens, isLoaded, debouncedSave]);
 
-  useEffect(() => {
-    const scale = settings.typographyScale || 1.0;
-    document.documentElement.style.fontSize = `${scale * 16}px`;
-  }, [settings.typographyScale]);
+  const handleUpdateSettings = async (newSettings: UserSettings, immediate = false) => {
+      setSettings(newSettings);
+      if (immediate) {
+          // Force immediate disk write to bypass debounce for resonance tuning
+          await saveState('assets', newSettings, 'user_settings');
+      }
+  };
+
+  /**
+   * THE HARD SAVE PROTOCOL
+   * Flushes every current state ref immediately to disk with build metric logging.
+   */
+  const handleHardSave = async () => {
+    const startTime = Date.now();
+    const s = stateRef.current;
+    showToast("Commencing Sovereign Hard Save...", "info");
+    triggerHaptic('heavy');
+    
+    try {
+        await Promise.all([
+          saveState('assets', s.settings, 'user_settings'),
+          saveState('council_sessions', s.sessions),
+          saveState('council_memories', s.memories),
+          saveState('health_readings', s.readings),
+          saveState('projects', s.projects),
+          saveState('sovereign_ledger', s.ledgerEntries),
+          saveState('vault_items', s.vaultItems),
+          saveState('life_events', s.lifeEvents),
+          saveState('emotional_logs', s.moodHistory),
+          saveState('life_domains', s.lifeDomains),
+          saveState('dream_oracle', s.dreams),
+          saveState('companion_memories', s.companionMemories),
+          saveState('council_members', s.members),
+          saveState('flame_tokens', s.flameTokens)
+        ]);
+        
+        const snap = await createSystemSnapshot(false);
+        setVaultItems(prev => [snap, ...prev]);
+        
+        const duration = Date.now() - startTime;
+        await metricsCollector.logBuild(true, duration);
+        
+        showToast("Rodriguez Archive Hard-Locked", "success");
+        playUISound('success');
+    } catch (e) {
+        const duration = Date.now() - startTime;
+        await metricsCollector.logBuild(false, duration, (e as Error).message);
+        showToast("Hard Save Wavered: Logged in Forge", "error");
+    }
+  };
 
   const handleMessagesChange = async (msgs: Message[]) => {
       if (!activeSessionId) return;
@@ -241,15 +325,31 @@ export const App: React.FC = () => {
           setIsSanctumLocked(true); 
           return; 
       }
-      setView(newView); 
+      
       setIsSidebarOpen(false);
+      
       if (id) {
           if (newView === ViewState.CouncilMember) {
               const session = sessions.find(s => s.id === id);
-              if (session) setActiveSessionId(id);
-              else { setActiveSessionId(null); setActiveDriveMember(id as CouncilMemberId); }
+              const member = members.find(m => m.id === id);
+              
+              if (session) {
+                  setActiveSessionId(id);
+                  setSelectedMemberId(session.memberId);
+                  setView(ViewState.CouncilMember);
+              } else if (member) {
+                  setActiveSessionId(null);
+                  setSelectedMemberId(member.id);
+                  setView(ViewState.CouncilMember);
+              }
+          } else if (newView === ViewState.TacticalCommand) {
+              setActiveProjectId(id);
+              setView(ViewState.TacticalCommand);
+          } else {
+              setView(newView);
           }
-          if (newView === ViewState.TacticalCommand) setActiveProjectId(id);
+      } else {
+          setView(newView);
       }
   };
 
@@ -257,25 +357,31 @@ export const App: React.FC = () => {
       const newSession: Session = { id: crypto.randomUUID(), title: `Signal with ${members.find(m => m.id === memberId)?.name || 'Member'}`, messages: [], lastModified: Date.now(), memberId };
       setSessions(prev => [newSession, ...prev]);
       setActiveSessionId(newSession.id);
+      setSelectedMemberId(memberId);
       setView(ViewState.CouncilMember);
   };
 
+  const handleEnterDriveMode = (memberId?: CouncilMemberId) => {
+      setDriveModeMemberId(memberId || selectedMemberId);
+      setIsDriveModeActive(true);
+      triggerHaptic('heavy');
+      playUISound('hero');
+  };
+
   const renderView = () => {
-      if (showDriveMode) return null; 
       const activeSession = sessions.find(s => s.id === activeSessionId);
       const activeProject = projects.find(p => p.id === activeProjectId);
 
       switch (view) {
           case ViewState.CouncilHall:
-              return <CouncilHall onNavigate={handleNavigate} onMenuClick={() => setIsSidebarOpen(true)} prismSealImage={prismSealImage} onSealUpload={async (f) => { await saveAsset('prism_seal_image', f); setPrismSealImage(URL.createObjectURL(f)); }} healthReadings={readings} onEnterDriveMode={(id) => { setActiveDriveMember(id); setShowDriveMode(true); }} isRealityBridgeActive={isRealityBridgeActive} onToggleRealityBridge={() => setIsRealityBridgeActive(!isRealityBridgeActive)} onNightlySeal={() => setIsNightlySealActive(true)} />;
+              return <CouncilHall onNavigate={handleNavigate} onMenuClick={() => setIsSidebarOpen(true)} prismSealImage={prismSealImage} onSealUpload={async (f) => { await saveAsset('prism_seal_image', f); setPrismSealImage(URL.createObjectURL(f)); }} healthReadings={readings} isRealityBridgeActive={isRealityBridgeActive} onToggleRealityBridge={() => setIsRealityBridgeActive(!isRealityBridgeActive)} onNightlySeal={() => setIsNightlySealActive(true)} onEnterDriveMode={() => handleEnterDriveMode()} />;
           
           case ViewState.CouncilMember:
-              const memberId = activeSession?.memberId || activeDriveMember || 'GEMINI'; 
-              const member = members.find(m => m.id === memberId) || members[0];
-              return <CouncilMemberPage member={member} members={members} onUpdateMember={(id, u) => setMembers(prev => prev.map(m => m.id === id ? { ...m, ...u } : m))} onBack={() => setView(ViewState.CouncilHall)} onMenuClick={() => setIsSidebarOpen(true)} onNavigate={handleNavigate} sessions={sessions.filter(s => s.memberId === member.id)} activeSession={activeSession || null} onOpenSession={setActiveSessionId} onCreateSession={handleCreateSession} onDeleteSession={(id) => setSessions(prev => prev.filter(s => s.id !== id))} onUpdateSession={handleUpdateSession} onMessagesChange={handleMessagesChange} healthReadings={readings} memories={memories} projects={projects} vaultItems={vaultItems} onAddVaultItem={(i) => setVaultItems([i, ...vaultItems])} onAddProject={(p) => setProjects([p, ...projects])} useTurboMode={settings.useTurboMode} onEnterDriveMode={() => { setActiveDriveMember(member.id); setShowDriveMode(true); }} />;
+              const member = members.find(m => m.id === selectedMemberId) || members[0];
+              return <CouncilMemberPage member={member} members={members} onUpdateMember={(id, u) => setMembers(prev => prev.map(m => m.id === id ? { ...m, ...u } : m))} onBack={() => setView(ViewState.CouncilHall)} onMenuClick={() => setIsSidebarOpen(true)} onNavigate={handleNavigate} sessions={sessions.filter(s => s.memberId === member.id)} activeSession={activeSession || null} onOpenSession={setActiveSessionId} onCreateSession={handleCreateSession} onDeleteSession={(id) => setSessions(prev => prev.filter(s => s.id !== id))} onUpdateSession={handleUpdateSession} onMessagesChange={handleMessagesChange} healthReadings={readings} memories={memories} projects={projects} vaultItems={vaultItems} onAddVaultItem={(i) => setVaultItems([i, ...vaultItems])} onAddProject={(p) => setProjects([p, ...projects])} useTurboMode={settings.useTurboMode} onEnterDriveMode={() => handleEnterDriveMode(member.id)} />;
           
           case ViewState.CouncilChamber:
-              return <CouncilChamber onBack={() => setView(ViewState.CouncilHall)} onMenuClick={() => setIsSidebarOpen(true)} onNavigate={handleNavigate} sessions={sessions.filter(s => s.memberId !== 'ENNEA')} activeSession={activeSession || null} onOpenSession={setActiveSessionId} onCreateSession={handleCreateSession} onDeleteSession={(id) => setSessions(prev => prev.filter(s => s.id !== id))} onUpdateSession={handleUpdateSession} onMessagesChange={handleMessagesChange} memories={memories} vaultItems={vaultItems} projects={projects} onAddProject={(p) => setProjects([p, ...projects])} voiceName="Kore" useTurboMode={settings.useTurboMode} onEnterDriveMode={() => { setActiveDriveMember('GEMINI'); setShowDriveMode(true); }} />;
+              return <CouncilChamber onBack={() => setView(ViewState.CouncilHall)} onMenuClick={() => setIsSidebarOpen(true)} onNavigate={handleNavigate} sessions={sessions.filter(s => s.memberId !== 'ENNEA')} activeSession={activeSession || null} onOpenSession={setActiveSessionId} onCreateSession={handleCreateSession} onDeleteSession={(id) => setSessions(prev => prev.filter(s => s.id !== id))} onUpdateSession={handleUpdateSession} onMessagesChange={handleMessagesChange} memories={memories} vaultItems={vaultItems} projects={projects} onAddProject={(p) => setProjects([p, ...projects])} voiceName="Kore" useTurboMode={settings.useTurboMode} onEnterDriveMode={() => handleEnterDriveMode('GEMINI')} />;
 
           case ViewState.Vault:
               return <Vault items={vaultItems} onAddVaultItem={(i) => setVaultItems([i, ...vaultItems])} onDeleteVaultItem={(id) => setVaultItems(prev => prev.filter(i => i.id !== id))} onBack={() => setView(ViewState.CouncilHall)} onMenuClick={() => setIsSidebarOpen(true)} />;
@@ -293,13 +399,13 @@ export const App: React.FC = () => {
               return <ProjectsDashboard projects={projects} onAddProject={(p) => setProjects([p, ...projects])} onUpdateProject={(id, u) => setProjects(prev => prev.map(p => p.id === id ? { ...p, ...u } : p))} onDeleteProject={(id) => setProjects(prev => prev.filter(p => p.id !== id))} onBack={() => setView(ViewState.CouncilHall)} onMenuClick={() => setIsSidebarOpen(true)} onNavigate={handleNavigate} />;
 
           case ViewState.TacticalCommand:
-              return <TacticalCommand project={activeProject!} onUpdate={(id, u) => setProjects(prev => prev.map(p => p.id === id ? { ...p, ...u } : p))} onBack={() => setView(ViewState.Projects)} onMenuClick={() => setIsSidebarOpen(true)} onEnterDriveMode={(mid) => { setActiveDriveMember(mid); setShowDriveMode(true); }} />;
+              return <TacticalCommand project={activeProject!} onUpdate={(id, u) => setProjects(prev => prev.map(p => p.id === id ? { ...p, ...u } : p))} onBack={() => setView(ViewState.Projects)} onMenuClick={() => setIsSidebarOpen(true)} onEnterDriveMode={handleEnterDriveMode} />;
 
           case ViewState.SovereignLedger:
               return <SovereignLedger entries={ledgerEntries} onAddEntry={(e) => setLedgerEntries([e, ...ledgerEntries])} onDeleteEntry={(id) => setLedgerEntries(prev => prev.filter(e => e.id !== id))} onBack={() => setView(ViewState.CouncilHall)} onMenuClick={() => setIsSidebarOpen(true)} onCreateSnapshot={async () => { const snap = await createSystemSnapshot(false); setVaultItems([snap, ...vaultItems]); }} onAddMemory={(m) => setMemories([m, ...memories])} />;
 
           case ViewState.EnneaSanctum:
-              return <EnneaSanctum onBack={() => setView(ViewState.CouncilHall)} onMenuClick={() => setIsSidebarOpen(true)} messages={activeSession?.messages || []} onMessagesChange={handleMessagesChange} healthReadings={readings} memories={memories} projects={projects} vaultItems={vaultItems} moodHistory={moodHistory} sessions={sessions} onAddMemory={(m) => setMemories([m, ...memories])} />;
+              return <EnneaSanctum onBack={() => setView(ViewState.CouncilHall)} onMenuClick={() => setIsSidebarOpen(true)} messages={activeSession?.messages || []} onMessagesChange={handleMessagesChange} healthReadings={readings} memories={memories} projects={projects} vaultItems={vaultItems} moodHistory={moodHistory} sessions={sessions} onAddMemory={(m) => setMemories([m, ...memories])} onEnterDriveMode={() => handleEnterDriveMode('ENNEA')} />;
 
           case ViewState.MemorySystem:
               return <MemorySystem memories={memories} onAddMemory={(m) => setMemories([m, ...memories])} onUpdateMemory={(id, u) => setMemories(prev => prev.map(m => m.id === id ? { ...m, ...u } : m))} onDeleteMemory={(id) => setMemories(prev => prev.filter(m => m.id !== id))} onBack={() => setView(ViewState.CouncilHall)} onMenuClick={() => setIsSidebarOpen(true)} />;
@@ -350,7 +456,10 @@ export const App: React.FC = () => {
               return <DiamondCore onBack={() => setView(ViewState.CouncilHall)} onMenuClick={() => setIsSidebarOpen(true)} stats={{ memories: memories.length, vault: vaultItems.length, health: readings.length, projects: projects.length }} />;
 
           case ViewState.Settings:
-              return <SettingsPanel settings={settings} onUpdate={setSettings} onClose={() => setView(ViewState.CouncilHall)} onSaveToVault={(i) => setVaultItems([i, ...vaultItems])} onCreateSnapshot={async () => { const snap = await createSystemSnapshot(false); setVaultItems([snap, ...vaultItems]); }} onEnterDriveMode={(id) => { setActiveDriveMember(id); setShowDriveMode(true); }} stats={{ memories: memories.length, sessions: sessions.length, vault: vaultItems.length, projects: projects.length }} prismSealImage={prismSealImage} onSealUpload={async (f) => { await saveAsset('prism_seal_image', f); setPrismSealImage(URL.createObjectURL(f)); }} members={members} onUpdateMember={(id, u) => setMembers(prev => prev.map(m => m.id === id ? { ...m, ...u } : m))} />;
+              return <SettingsPanel settings={settings} onUpdate={handleUpdateSettings} onNavigate={handleNavigate} onClose={() => setView(ViewState.CouncilHall)} onSaveToVault={(i) => setVaultItems([i, ...vaultItems])} onCreateSnapshot={async () => { const snap = await createSystemSnapshot(false); setVaultItems([snap, ...vaultItems]); }} stats={{ memories: memories.length, sessions: sessions.length, vault: vaultItems.length, projects: projects.length }} prismSealImage={prismSealImage} onSealUpload={async (f) => { await saveAsset('prism_seal_image', f); setPrismSealImage(URL.createObjectURL(f)); }} members={members} onUpdateMember={(id, u) => setMembers(prev => prev.map(m => m.id === id ? { ...m, ...u } : m))} />;
+
+          case ViewState.SanctuarySettings:
+              return <SanctuarySettings settings={settings} onUpdate={handleUpdateSettings} onBack={() => setView(ViewState.Settings)} onMenuClick={() => setIsSidebarOpen(true)} />;
 
           case ViewState.FlameQuestions:
               return <FlameQuestions onBack={() => setView(ViewState.CouncilHall)} onMenuClick={() => setIsSidebarOpen(true)} onSaveMemory={m => setMemories([m, ...memories])} />;
@@ -362,7 +471,7 @@ export const App: React.FC = () => {
               return <DevBlueprintModal onClose={() => setView(ViewState.CouncilHall)} data={{ members, sessions, projects, vaultItems, memories }} />;
 
           default:
-              return <CouncilHall onNavigate={handleNavigate} onMenuClick={() => setIsSidebarOpen(true)} prismSealImage={prismSealImage} onSealUpload={async (f) => { await saveAsset('prism_seal_image', f); setPrismSealImage(URL.createObjectURL(f)); }} healthReadings={readings} onEnterDriveMode={(id) => { setActiveDriveMember(id); setShowDriveMode(true); }} isRealityBridgeActive={isRealityBridgeActive} onToggleRealityBridge={() => setIsRealityBridgeActive(!isRealityBridgeActive)} onNightlySeal={() => setIsNightlySealActive(true)} />;
+              return <CouncilHall onNavigate={handleNavigate} onMenuClick={() => setIsSidebarOpen(true)} prismSealImage={prismSealImage} onSealUpload={async (f) => { await saveAsset('prism_seal_image', f); setPrismSealImage(URL.createObjectURL(f)); }} healthReadings={readings} isRealityBridgeActive={isRealityBridgeActive} onToggleRealityBridge={() => setIsRealityBridgeActive(!isRealityBridgeActive)} onNightlySeal={() => setIsNightlySealActive(true)} onEnterDriveMode={() => handleEnterDriveMode()} />;
       }
   };
 
@@ -371,36 +480,68 @@ export const App: React.FC = () => {
 
   return (
     <div className="fixed inset-0 w-full h-full overflow-hidden flex font-sans text-white bg-black">
-      <div 
-        id="root-scaler" 
-        style={{ 
-            zoom: settings.interfaceZoom,
-            transform: `scale(${settings.interfaceZoom})`,
-            transformOrigin: 'top left',
-            width: `${100 / settings.interfaceZoom}%`,
-            height: `${100 / settings.interfaceZoom}%`
-        } as any}
-      >
+      {/* GLOBAL TYPOGRAPHY ENGINE (FINAL SEALED) */}
+      <style>{`
+        :root {
+          --typography-scale: ${settings.typographyScale || 1.0};
+        }
+        html {
+          font-size: calc(var(--typography-scale) * 16px) !important;
+        }
+        body {
+          font-size: 1rem;
+        }
+        #root-scaler {
+          zoom: ${settings.interfaceZoom};
+          transform: scale(${settings.interfaceZoom});
+          transform-origin: top left;
+          width: ${100 / settings.interfaceZoom}%;
+          height: ${100 / settings.interfaceZoom}%;
+        }
+      `}</style>
+      
+      <div id="root-scaler">
         <LatticeBackground hide={isRealityBridgeActive} />
         {isRealityBridgeActive && <CameraBackdrop />}
         <OfflineIndicator />
         <ToastContainer />
         
         <AnimatePresence>
-            {showDriveMode && (
-                <DriveMode onClose={() => setShowDriveMode(false)} initialMemberId={activeDriveMember} members={members} healthReadings={readings} projects={projects} activeSession={sessions.find(s => s.id === activeSessionId)} />
-            )}
-        </AnimatePresence>
-        
-        <AnimatePresence>
-            {isNightlySealActive && <NightlySeal onConfirm={async () => { const snap = await createSystemSnapshot(false); setVaultItems(prev => [snap, ...prev]); }} onReopen={() => setIsNightlySealActive(false)} />}
+            {isNightlySealActive && <NightlySeal onConfirm={handleHardSave} onReopen={() => setIsNightlySealActive(false)} />}
         </AnimatePresence>
         
         <AnimatePresence>
             {isSanctumLocked && <SanctumLock onUnlock={() => { if (pendingView) setView(pendingView); setIsSanctumLocked(false); setPendingView(null); setIsSidebarOpen(false); }} />}
         </AnimatePresence>
+
+        <AnimatePresence>
+            {isSearchOpen && (
+                <OmniSearch 
+                    isOpen={isSearchOpen} 
+                    onClose={() => setIsSearchOpen(false)} 
+                    onNavigate={handleNavigate} 
+                    sessions={sessions} 
+                    memories={memories} 
+                    vaultItems={vaultItems} 
+                    projects={projects} 
+                />
+            )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+            {isDriveModeActive && (
+                <DriveMode 
+                    onClose={() => setIsDriveModeActive(false)} 
+                    initialMemberId={driveModeMemberId}
+                    members={members}
+                    healthReadings={readings}
+                    projects={projects}
+                    activeSession={sessions.find(s => s.id === activeSessionId)}
+                />
+            )}
+        </AnimatePresence>
         
-        <Sidebar currentView={view} onViewChange={handleNavigate} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} sessions={sessions} activeSessionId={activeSessionId} onSelectSession={(id) => { setActiveSessionId(id); setIsSidebarOpen(false); }} onCreateSession={() => handleCreateSession('GEMINI')} settings={settings} members={members} onSelectMember={(id) => { setView(ViewState.CouncilMember); setActiveDriveMember(id); setActiveSessionId(null); setIsSidebarOpen(false); }} onMemberAvatarUpload={() => {}} onNightlySeal={() => { setIsNightlySealActive(true); setIsSidebarOpen(false); }} memories={memories} vaultItems={vaultItems} onToggleGuestMode={() => setSettings({ ...settings, guestMode: !settings.guestMode })} />
+        <Sidebar currentView={view} onViewChange={handleNavigate} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} sessions={sessions} activeSessionId={activeSessionId} onSelectSession={(id) => handleNavigate(ViewState.CouncilMember, id)} onCreateSession={() => handleCreateSession('GEMINI')} settings={settings} members={members} onSelectMember={(id) => handleNavigate(ViewState.CouncilMember, id)} onMemberAvatarUpload={() => {}} onNightlySeal={() => { setIsNightlySealActive(true); setIsSidebarOpen(false); }} memories={memories} vaultItems={vaultItems} onToggleGuestMode={() => setSettings({ ...settings, guestMode: !settings.guestMode })} />
         
         <main 
             className="flex-1 relative z-10 flex flex-col h-full overflow-hidden transition-all duration-300" 

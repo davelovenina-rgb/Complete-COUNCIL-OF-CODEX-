@@ -5,7 +5,6 @@ import { ChatInterface } from './ChatInterface';
 import { ArrowLeft, Menu, Plus, MessageSquare, Trash2, X, ChevronRight, Mic, Shield, FileCode, Zap, Loader2, Archive, Edit2, Folder, FolderPlus, Check, RefreshCw, FolderSearch, Lock, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { scribeExtractRaw, sendMessageToGemini } from '../services/geminiService';
-import { saveAsset } from '../utils/db';
 import { playUISound } from '../utils/sound';
 import { triggerHaptic } from '../utils/haptics';
 import { showToast } from '../utils/events';
@@ -32,7 +31,7 @@ interface CouncilMemberPageProps {
   projects?: Project[];
   vaultItems?: VaultItem[];
   useTurboMode?: boolean;
-  onEnterDriveMode: () => void;
+  onEnterDriveMode?: () => void;
 }
 
 export const CouncilMemberPage: React.FC<CouncilMemberPageProps> = ({ 
@@ -46,11 +45,9 @@ export const CouncilMemberPage: React.FC<CouncilMemberPageProps> = ({
   const [showFolderPicker, setShowFolderPicker] = useState<string | null>(null);
   
   const scribeInputRef = useRef<HTMLInputElement>(null);
-  const archiveInputRef = useRef<HTMLInputElement>(null);
   
   const isChatActive = !!activeSession;
 
-  // Only show Council-wide projects OR Private projects owned by this specific member
   const memberRelevantProjects = useMemo(() => {
     return projects.filter(p => p.scope === 'COUNCIL' || (p.scope === 'PRIVATE' && p.ownerId === member.id));
   }, [projects, member.id]);
@@ -173,9 +170,10 @@ export const CouncilMemberPage: React.FC<CouncilMemberPageProps> = ({
                     </div>
                 </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-1">
                 <button onClick={handleHealRegistry} disabled={isHealing} className={`p-2 transition-colors ${isHealing ? 'text-lux-gold animate-spin' : 'text-zinc-500 hover:text-lux-gold'}`} title="Heal Registry (Auto-Fix)"><RefreshCw size={20} /></button>
-                <button onClick={onMenuClick} className="p-2 -mr-2 text-zinc-400 hover:text-white"><Menu size={20} /></button>
+                <button onClick={onEnterDriveMode} className="p-2 text-zinc-400 hover:text-white rounded-full" title="Voice Bridge"><Mic size={22} /></button>
+                <button onClick={onMenuClick} className="p-2 -mr-2 text-zinc-400 hover:text-white rounded-full"><Menu size={24} /></button>
             </div>
         </div>
 
@@ -196,7 +194,6 @@ export const CouncilMemberPage: React.FC<CouncilMemberPageProps> = ({
                     healthReadings={healthReadings} 
                     projects={projects}
                     useTurboMode={useTurboMode}
-                    onEnterDriveMode={onEnterDriveMode}
                     customSystemInstruction={member.systemPrompt}
                 />
             ) : (
@@ -267,7 +264,7 @@ export const CouncilMemberPage: React.FC<CouncilMemberPageProps> = ({
                                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); toggleSacred(s.id, !!s.isSacred); }}
-                                                                className={`p-2 transition-colors ${s.isSacred ? 'text-lux-gold' : 'text-zinc-600 hover:text-lux-gold'}`}
+                                                                className={`p-2 transition-colors ${s.isSacred ? 'text-lux-gold' : 'text-zinc-700 hover:text-lux-gold'}`}
                                                                 title={s.isSacred ? "Unmark Sacred" : "Mark as Sacred"}
                                                             >
                                                                 <Star size={14} fill={s.isSacred ? "currentColor" : "none"} />

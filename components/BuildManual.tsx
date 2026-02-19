@@ -2,12 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
     ArrowLeft, Menu, Hammer, Download, Terminal, 
-    CheckCircle, Copy, Zap, Loader2, HardDrive, AlertCircle
+    CheckCircle, Copy, Zap, Loader2, HardDrive, AlertCircle, Clock, History
 } from 'lucide-react';
 import { playUISound } from '../utils/sound';
 import { triggerHaptic } from '../utils/haptics';
 import { showToast } from '../utils/events';
 import { getSovereignSeed, runSystemDiagnostics } from '../utils/db';
+import { UniversalBuildMonitor } from '../utils/buildMonitor';
 
 interface BuildManualProps {
   onBack: () => void;
@@ -19,6 +20,10 @@ export const BuildManual: React.FC<BuildManualProps> = ({ onBack, onMenuClick })
     const [auditResults, setAuditResults] = useState<any>(null);
     const [isExporting, setIsExporting] = useState(false);
     const [swStatus, setSwStatus] = useState<'ACTIVE' | 'INACTIVE'>('INACTIVE');
+    
+    const monitor = UniversalBuildMonitor.getInstance();
+    const stats = monitor.getBuildStatistics();
+    const buildHistory = monitor.getBuildHistory();
 
     useEffect(() => {
         if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
@@ -31,7 +36,6 @@ export const BuildManual: React.FC<BuildManualProps> = ({ onBack, onMenuClick })
         triggerHaptic('heavy');
         playUISound('hero');
         
-        // Deep scan logic: Database + Hardware + PWA Infrastructure
         const diagnostics = await runSystemDiagnostics('FULL');
         
         let manifestValid = false;
@@ -84,12 +88,6 @@ export const BuildManual: React.FC<BuildManualProps> = ({ onBack, onMenuClick })
         }
     };
 
-    const copyCommand = (cmd: string) => {
-        navigator.clipboard.writeText(cmd);
-        showToast("Buffered to Clipboard", "info");
-        playUISound('click');
-    };
-
     return (
         <div className="w-full h-full bg-[#050505] flex flex-col relative overflow-hidden font-sans">
             <div className="px-4 py-3 border-b border-zinc-900 flex items-center justify-between bg-black/90 backdrop-blur shrink-0 z-20">
@@ -104,6 +102,16 @@ export const BuildManual: React.FC<BuildManualProps> = ({ onBack, onMenuClick })
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 md:p-12 no-scrollbar relative z-10 space-y-12 pb-32">
+                
+                {/* 1. Build Stats */}
+                <div className="max-w-2xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <StatBox label="Total Builds" value={stats.totalBuilds} icon={History} color="text-blue-400" />
+                    <StatBox label="Success Rate" value={`${stats.successRate}%`} icon={CheckCircle} color="text-emerald-400" />
+                    <StatBox label="Build No." value={stats.currentBuildNumber.toString().slice(-4)} icon={Zap} color="text-amber-400" />
+                    <StatBox label="Features" value={stats.featureCount} icon={Hammer} color="text-purple-400" />
+                </div>
+
+                {/* 2. Audit Card */}
                 <div className="max-w-2xl mx-auto">
                     <div className="p-8 rounded-[2.5rem] bg-zinc-900/50 border border-zinc-800 space-y-8 relative overflow-hidden shadow-2xl">
                          <div className="absolute top-0 right-0 p-8 opacity-5">
@@ -113,7 +121,7 @@ export const BuildManual: React.FC<BuildManualProps> = ({ onBack, onMenuClick })
                          <div className="space-y-2">
                             <h3 className="text-xl font-bold text-white uppercase tracking-widest">Build Integrity Audit</h3>
                             <p className="text-zinc-500 text-xs leading-relaxed font-sans">
-                                Confirm the presence of core production files (manifest, service-worker) and database partitions.
+                                Confirm the presence of core production files and database partitions.
                             </p>
                          </div>
 
@@ -141,6 +149,40 @@ export const BuildManual: React.FC<BuildManualProps> = ({ onBack, onMenuClick })
                     </div>
                 </div>
 
+                {/* 3. Build History */}
+                <div className="max-w-2xl mx-auto space-y-6">
+                    <h3 className="text-xs font-bold text-zinc-600 uppercase tracking-[0.4em] px-2 flex items-center gap-2">
+                        <Clock size={14} /> Historical Ledger
+                    </h3>
+                    <div className="space-y-3">
+                        {buildHistory.reverse().map((build) => (
+                            <div key={build.id} className="p-5 bg-zinc-900/30 border border-zinc-800 rounded-[2rem] group hover:border-blue-500/30 transition-all">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-bold text-white">v{build.version}</span>
+                                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${build.environment === 'production' ? 'bg-emerald-900/20 text-emerald-500' : 'bg-blue-900/20 text-blue-500'}`}>{build.environment.toUpperCase()}</span>
+                                        </div>
+                                        <p className="text-[9px] text-zinc-500 font-mono mt-1 uppercase tracking-widest">{new Date(build.timestamp).toLocaleString()}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Build ID</div>
+                                        <div className="text-[9px] text-zinc-600 font-mono">{build.id.split('-').pop()}</div>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    {build.changes.map((change, idx) => (
+                                        <div key={idx} className="flex items-start gap-2 text-[10px] text-zinc-400 font-sans leading-relaxed">
+                                            <div className="w-1 h-1 rounded-full bg-blue-500 mt-1.5 shrink-0" />
+                                            {change}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
                 <div className="max-w-2xl mx-auto">
                     <button 
                         onClick={handleExportSeed}
@@ -162,13 +204,6 @@ export const BuildManual: React.FC<BuildManualProps> = ({ onBack, onMenuClick })
                     </button>
                 </div>
 
-                <div className="max-w-2xl mx-auto space-y-6">
-                    <h3 className="text-xs font-bold text-zinc-600 uppercase tracking-[0.4em] px-2">Terminal Commands</h3>
-                    <CommandRow label="1. Forge Web Build" cmd="npm run build" onCopy={copyCommand} />
-                    <CommandRow label="2. Sync Native Capacitor" cmd="npx cap sync android" onCopy={copyCommand} />
-                    <CommandRow label="3. Execute Shell" cmd="npx cap open android" onCopy={copyCommand} />
-                </div>
-
                 <div className="mt-20 text-center opacity-30 pb-20">
                     <p className="text-[8px] font-mono tracking-[0.5em] uppercase">Sovereign Shell Protocol • Rodriguez Legacy Forge</p>
                 </div>
@@ -177,19 +212,19 @@ export const BuildManual: React.FC<BuildManualProps> = ({ onBack, onMenuClick })
     );
 };
 
+const StatBox = ({ label, value, icon: Icon, color }: { label: string, value: string | number, icon: any, color: string }) => (
+    <div className="p-4 bg-zinc-900/40 border border-zinc-800 rounded-3xl text-center flex flex-col items-center gap-2">
+        <Icon size={16} className={color} />
+        <div>
+            <div className="text-xl font-bold text-white">{value}</div>
+            <div className="text-[8px] text-zinc-500 uppercase tracking-widest">{label}</div>
+        </div>
+    </div>
+);
+
 const StatusPill = ({ label, active }: { label: string, active: boolean }) => (
     <div className={`p-4 rounded-xl border flex items-center justify-between ${active ? 'bg-emerald-950/10 border-emerald-500/20 text-emerald-500' : 'bg-red-950/10 border-red-500/20 text-red-500'}`}>
         <span className="text-[10px] font-bold uppercase tracking-widest">{label}</span>
         {active ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
-    </div>
-);
-
-const CommandRow = ({ label, cmd, onCopy }: { label: string, cmd: string, onCopy: (c: string) => void }) => (
-    <div className="p-5 bg-zinc-900/40 border border-zinc-800 rounded-3xl flex items-center justify-between group">
-        <div className="space-y-1">
-            <div className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">{label}</div>
-            <code className="text-xs font-mono text-zinc-300">{cmd}</code>
-        </div>
-        <button onClick={() => onCopy(cmd)} className="p-2.5 bg-zinc-800 rounded-xl text-zinc-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"><Copy size={16} /></button>
     </div>
 );

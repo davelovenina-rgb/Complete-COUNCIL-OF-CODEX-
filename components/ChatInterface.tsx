@@ -6,10 +6,11 @@ import {
   Paperclip, Download, Heart, ThumbsUp, 
   ExternalLink, Zap, Film, Brain, 
   ChevronLeft, MoreVertical, ShieldCheck, Camera,
-  ThumbsDown, Flame, Lightbulb, Target, RefreshCw, Edit3, Sparkles, BookOpen, Terminal, Languages
+  ThumbsDown, Flame, Lightbulb, Target, RefreshCw, Edit3, Sparkles, BookOpen, Terminal, Languages,
+  MicOff, PhoneCall, Headphones, Activity, Check
 } from 'lucide-react';
-import { Message, Attachment, CouncilMemberId, GeneratedMedia, CouncilMode, AIProviderId, VaultItem } from '../types';
-import { sendMessageToGemini } from '../services/geminiService';
+import { Message, Attachment, CouncilMemberId, GeneratedMedia, CouncilMode, AIProviderId, VaultItem, CustomSendArgs } from '../types';
+import { sendMessageToGemini, summarizeHistory, LiveConnection, decodeAudioDataToPCM } from '../services/geminiService';
 import { sendMessageToOpenAI } from '../services/openaiService';
 import { sendMessageToGrok } from '../services/grokService';
 import { sendMessageToClaude } from '../services/claudeService';
@@ -19,7 +20,9 @@ import { showToast } from '../utils/events';
 import { triggerHaptic } from '../utils/haptics';
 import { playUISound } from '../utils/sound';
 import { analyzeText } from '../utils/spanglishAnalysis';
-import { sanitizeInput } from '../utils/security'; // Phase 5: Security
+import { sanitizeInput } from '../utils/security';
+import { LiveVoiceVisualizer } from './LiveVoiceVisualizer';
+import { MotionAvatar } from './MotionAvatar';
 
 interface ChatInterfaceProps {
   initialMessages?: Message[];
@@ -37,8 +40,9 @@ interface ChatInterfaceProps {
   projects?: any[];
   useTurboMode?: boolean;
   onEnterDriveMode?: () => void;
-  onCustomSend?: (args: any) => Promise<Message[]>;
+  onCustomSend?: (args: CustomSendArgs) => Promise<Message[]>;
   customSystemInstruction?: string;
+  threadId?: string;
 }
 
 const PROVIDERS: { id: AIProviderId, name: string, icon: any, color: string }[] = [
@@ -47,6 +51,29 @@ const PROVIDERS: { id: AIProviderId, name: string, icon: any, color: string }[] 
     { id: 'CLAUDE', name: 'Claude', icon: BookOpen, color: '#F59E0B' },
     { id: 'GROK', name: 'Grok', icon: Terminal, color: '#8B5CF6' }
 ];
+
+// Added ActionMenuItem component to fix missing name error
+const ActionMenuItem: React.FC<{
+    icon: any;
+    label: string;
+    sub: string;
+    onClick: () => void;
+    color: string;
+    active?: boolean;
+}> = ({ icon: Icon, label, sub, onClick, color, active }) => (
+    <button 
+        onClick={onClick}
+        className={`w-full flex items-center gap-4 p-3 rounded-2xl transition-all ${active ? 'bg-white/10' : 'hover:bg-white/5'}`}
+    >
+        <div className={`p-2 rounded-xl bg-black border border-white/5 ${color}`}>
+            <Icon size={20} />
+        </div>
+        <div className="text-left">
+            <div className="text-xs font-bold text-white uppercase tracking-wider">{label}</div>
+            <div className="text-[10px] text-zinc-500 uppercase tracking-widest">{sub}</div>
+        </div>
+    </button>
+);
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
     initialMessages = [], 
@@ -60,7 +87,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     customSystemInstruction,
     memories,
     projects,
-    vaultItems
+    vaultItems,
+    threadId
 }) => {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState('');
@@ -70,7 +98,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [activeMode, setActiveMode] = useState<CouncilMode>('SCRIBE');
   const [selectedProvider, setSelectedProvider] = useState<AIProviderId>('GEMINI');
   const [showLinguisticBadge, setShowLinguisticBadge] = useState(true);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   
+  const [isVoiceBridgeActive, setIsVoiceBridgeActive] = useState(false);
+  const [isVoiceMuted, setIsVoiceMuted] = useState(false);
+  const [voiceAnalyser, setVoiceAnalyser] = useState<AnalyserNode | null>(null);
+  
+  const liveConnectionRef = useRef<LiveConnection | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const outAudioContextRef = useRef<AudioContext | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -112,13 +148,21 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     });
   };
 
-  const handleSend = async (forcedPrompt?: string, forcedMode?: CouncilMode) => {
+  const handleCopyUrl = (url: string) => {
+    navigator.clipboard.writeText(url);
+    setCopiedUrl(url);
+    triggerHaptic('light');
+    playUISound('click');
+    showToast("Link buffered to memory");
+    setTimeout(() => setCopiedUrl(null), 2000);
+  };
+
+  const handleSend = async (forcedPrompt?: string, forcedMode?: CouncilMode, intent: 'generate' | 'regenerate' = 'generate') => {
     const rawText = forcedPrompt || input.trim();
     const mode = forcedMode || activeMode;
     
     if (!rawText && attachments.length === 0) return;
     
-    // Phase 5: Security Sanitization
     const text = sanitizeInput(rawText);
 
     const userMsg: Message = { 
@@ -130,7 +174,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         mode
     };
     
-    setMessages(prev => [...prev, userMsg]);
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
     setInput('');
     setAttachments([]);
     setIsActionMenuOpen(false);
@@ -139,17 +184,51 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     try {
         let response;
-        const systemPrompt = customSystemInstruction || activeMember.systemPrompt;
+        let systemPrompt = customSystemInstruction || activeMember.systemPrompt;
         
+        if (newMessages.length > 0 && newMessages.length % 8 === 0) {
+            showToast("Compacting Context...", "info");
+            const historyForSummary = newMessages.map(m => ({ 
+                role: m.sender === 'user' ? 'user' : 'model', 
+                parts: [{ text: m.text }] 
+            }));
+            const summary = await summarizeHistory(historyForSummary);
+            systemPrompt += `\n\n[TACTICAL BRIEF OF PREVIOUS CONVERSATION]:\n${summary}`;
+        }
+
         const vaultAwareness = vaultItems?.map(v => 
             `- ${v.title} (${v.category})${v.isPrivate ? ` [PRIVATE: ${v.ownerId}]` : ''}`
-        ).join('\n') || "Vault empty.";
+        ).join('\n') || "Vault is currently empty.";
+
+        const geminiHistory = newMessages.map(m => ({ 
+            role: m.sender === 'user' ? 'user' : 'model', 
+            parts: [{ text: m.text }] 
+        }));
+
+        if (onCustomSend) {
+            const customResponse = await onCustomSend({
+                text,
+                history: geminiHistory,
+                threadId,
+                mode,
+                memberId: activeMember.id,
+                intent
+            });
+            if (customResponse && customResponse.length > 0) {
+                const updated = [...newMessages, ...customResponse];
+                setMessages(updated);
+                onMessagesChange(updated);
+                setIsLoading(false);
+                return;
+            }
+        }
 
         if (mode === 'ARCHITECT' || mode === 'FLAME' || mode === 'WEAVER' || selectedProvider === 'GEMINI') {
             response = await sendMessageToGemini(text, mode, userMsg.attachments, { 
                 systemInstruction: systemPrompt,
                 useTurboMode: useTurboMode || mode === 'ARCHITECT',
-                vaultAwareness 
+                vaultAwareness,
+                history: geminiHistory
             });
         } else if (selectedProvider === 'OPENAI') {
             response = await sendMessageToOpenAI(text, systemPrompt);
@@ -162,14 +241,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         if (response) {
             const modelMsg: Message = { 
                 id: (Date.now()+1).toString(), 
-                text: sanitizeInput(response.text), // Sanitize AI output as well
+                text: sanitizeInput(response.text), 
                 sender: 'gemini', 
                 timestamp: Date.now(), 
                 memberId: initialMemberId as CouncilMemberId,
                 generatedMedia: response.generatedMedia,
                 groundingMetadata: (response as any).groundingMetadata
             };
-            const updatedMessages = [...messages, userMsg, modelMsg];
+            const updatedMessages = [...newMessages, modelMsg];
             setMessages(updatedMessages);
             onMessagesChange(updatedMessages);
         }
@@ -181,7 +260,72 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
-  const copyMessage = (text: string) => {
+  const startVoiceBridge = async () => {
+      setIsVoiceBridgeActive(true);
+      triggerHaptic('heavy');
+      playUISound('hero');
+      
+      try {
+          audioContextRef.current = new AudioContext({ sampleRate: 16000 });
+          outAudioContextRef.current = new AudioContext({ sampleRate: 24000 });
+          const outAnalyser = outAudioContextRef.current.createAnalyser();
+          outAnalyser.fftSize = 256;
+          setVoiceAnalyser(outAnalyser);
+
+          const vaultAwareness = vaultItems?.map(v => 
+            `- ${v.title} (${v.category})${v.isPrivate ? ` [PRIVATE: ${v.ownerId}]` : ''}`
+          ).join('\n') || "Vault empty.";
+
+          liveConnectionRef.current = new LiveConnection();
+          const callbacks = {
+              onopen: () => showToast(`Link to ${activeMember.name} Established`),
+              onAudioData: async (uint8: string) => {
+                  if (outAudioContextRef.current) {
+                      const buffer = await decodeAudioDataToPCM(uint8, outAudioContextRef.current, 24000, 1);
+                      const source = outAudioContextRef.current.createBufferSource();
+                      source.buffer = buffer;
+                      source.connect(outAnalyser);
+                      outAnalyser.connect(outAudioContextRef.current.destination);
+                      source.start();
+                  }
+              },
+              onclose: () => stopVoiceBridge()
+          };
+
+          await liveConnectionRef.current.connect(callbacks, {
+              systemInstruction: customSystemInstruction || activeMember.systemPrompt,
+              voiceName: activeMember.voiceName,
+              vaultAwareness
+          });
+
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const source = audioContextRef.current.createMediaStreamSource(stream);
+          const processor = audioContextRef.current.createScriptProcessor(4096, 1, 1);
+          
+          processor.onaudioprocess = (e) => {
+              if (liveConnectionRef.current && !isVoiceMuted) {
+                  liveConnectionRef.current.sendAudio(e.inputBuffer.getChannelData(0));
+              }
+          };
+
+          source.connect(processor);
+          processor.connect(audioContextRef.current.destination);
+      } catch (e) {
+          showToast("Bridge Failure", "error");
+          stopVoiceBridge();
+      }
+  };
+
+  const stopVoiceBridge = () => {
+      if (liveConnectionRef.current) liveConnectionRef.current.disconnect();
+      if (audioContextRef.current) audioContextRef.current.close();
+      if (outAudioContextRef.current) outAudioContextRef.current.close();
+      setIsVoiceBridgeActive(false);
+      setVoiceAnalyser(null);
+      triggerHaptic('medium');
+  };
+
+  const copyText = (text: string) => {
       navigator.clipboard.writeText(text);
       showToast("Buffered to Memory");
       triggerHaptic('light');
@@ -209,7 +353,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           playUISound('hero');
           const prunedMessages = messages.slice(0, msgIndex);
           setMessages(prunedMessages);
-          handleSend(lastUserMsg.text, lastUserMsg.mode);
+          handleSend(lastUserMsg.text, lastUserMsg.mode, 'regenerate');
       }
   };
 
@@ -221,7 +365,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       FLAME: { color: 'border-pink-500/50', label: "Vision Forge Manifesting...", accent: 'text-pink-400' },
       WEAVER: { color: 'border-purple-500/50', label: "Neural Weave Polling...", accent: 'text-purple-400' },
       SEER: { color: 'border-indigo-500/50', label: "Scanning Vitals...", accent: 'text-indigo-400' },
-      DRIVE: { color: 'border-red-500/50', label: "Drive Protocol Engaged...", accent: 'text-red-400' }
+      DRIVE: { color: 'border-red-500/50', label: "Voice Synchronized...", accent: 'text-red-400' }
   };
 
   return (
@@ -232,12 +376,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     <button onClick={onBack} className="p-2 -ml-2 text-zinc-500 hover:text-white rounded-full transition-colors"><ChevronLeft size={22} /></button>
                 )}
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full border bg-black flex items-center justify-center overflow-hidden shrink-0" style={{ borderColor: activeMember.color }}>
-                        {activeMember.avatarUrl ? (
-                            <img src={activeMember.avatarUrl} className="w-full h-full object-cover" />
-                        ) : (
-                            <span style={{ color: activeMember.color }} className="text-xs font-bold">{activeMember.sigil}</span>
-                        )}
+                    <div className="w-10 h-10">
+                        <MotionAvatar 
+                            sigil={activeMember.sigil} 
+                            color={activeMember.color} 
+                            imageUrl={activeMember.avatarUrl} 
+                            size="sm" 
+                            isActive={true} 
+                            memberId={activeMember.id}
+                            mood={isLoading ? 'processing' : 'neutral'}
+                        />
                     </div>
                     <div>
                         <div className="text-xs font-bold uppercase tracking-widest leading-none">{activeMember.name}</div>
@@ -261,10 +409,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         <p.icon size={14} style={{ color: selectedProvider === p.id ? p.color : undefined }} />
                     </button>
                 ))}
-                <div className="w-px h-4 bg-white/5 mx-2" />
-                {onEnterDriveMode && (
-                    <button onClick={onEnterDriveMode} className="p-2 text-zinc-600 hover:text-red-500 transition-colors"><Mic size={20} /></button>
-                )}
             </div>
         </div>
 
@@ -272,7 +416,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             {messages.map((msg) => {
                 const member = COUNCIL_MEMBERS.find(m => m.id === msg.memberId) || activeMember;
                 const dotColor = msg.sender === 'user' ? '#3B82F6' : member.color;
-                const linguistic = msg.sender === 'user' ? analyzeText(msg.text) : null;
+                const linguistic = analyzeText(msg.text);
 
                 return (
                     <div key={msg.id} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'} group w-full`}>
@@ -280,6 +424,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                             msg.sender === 'user' ? 'border-white/10' : 'border-white/5'
                         }`}>
                             
+                            {msg.sender === 'gemini' && showLinguisticBadge && linguistic.spanishRatio > 0 && (
+                                <div className="absolute top-0 right-0 h-full w-1 overflow-hidden pointer-events-none">
+                                    <motion.div 
+                                        initial={{ height: 0 }}
+                                        animate={{ height: `${linguistic.spanishRatio}%` }}
+                                        className="w-full bg-lux-gold shadow-[0_0_10px_rgba(212,175,55,0.8)]"
+                                    />
+                                </div>
+                            )}
+
                             <div className="px-5 pt-4 pb-1 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
@@ -288,7 +442,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                     </span>
                                     {showLinguisticBadge && linguistic && linguistic.spanishRatio > 0 && (
                                         <span className="text-[8px] font-mono font-bold text-lux-gold bg-lux-gold/10 px-1.5 py-0.5 rounded-full border border-lux-gold/20 flex items-center gap-1 ml-2">
-                                            <Sparkles size={8} /> {linguistic.spanishRatio}% SAZÓN
+                                            <Activity size={8} className="animate-pulse" /> {linguistic.spanishRatio}% RESONANCE
                                         </span>
                                     )}
                                 </div>
@@ -307,9 +461,37 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                 </div>
                             )}
                             
-                            <div className="px-6 py-3 text-[15px] leading-[1.6] whitespace-pre-wrap font-sans text-zinc-100">
+                            <div className="px-6 py-3 text-[15px] leading-[1.6] whitespace-pre-wrap font-sans text-zinc-100 break-words overflow-hidden overflow-wrap-anywhere">
                                 {msg.text}
                             </div>
+
+                            {msg.groundingMetadata?.groundingChunks && (
+                                <div className="px-6 pb-4 flex flex-wrap gap-2">
+                                    {msg.groundingMetadata.groundingChunks.map((chunk: any, i: number) => (
+                                        chunk.web && (
+                                            <div key={i} className="flex items-center gap-0.5">
+                                                <a 
+                                                    href={chunk.web.uri} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-1.5 px-3 py-1 bg-blue-900/20 border border-blue-500/20 rounded-l-full text-[10px] text-blue-400 hover:bg-blue-900/40 transition-colors"
+                                                >
+                                                    <Globe size={10} />
+                                                    <span className="truncate max-w-[120px]">{chunk.web.title || "Reference"}</span>
+                                                    <ExternalLink size={8} />
+                                                </a>
+                                                <button 
+                                                    onClick={() => handleCopyUrl(chunk.web.uri)}
+                                                    className={`p-1.5 border border-l-0 rounded-r-full transition-all flex items-center justify-center ${copiedUrl === chunk.web.uri ? 'bg-emerald-600/30 border-emerald-500/30 text-emerald-400' : 'bg-blue-900/30 border-blue-500/20 text-blue-500 hover:text-white hover:bg-blue-900/50'}`}
+                                                    title="Copy URL"
+                                                >
+                                                    {copiedUrl === chunk.web.uri ? <Check size={10} /> : <Copy size={10} />}
+                                                </button>
+                                            </div>
+                                        )
+                                    ))}
+                                </div>
+                            )}
                             
                             {msg.generatedMedia && msg.generatedMedia.length > 0 && (
                                 <div className="px-5 pb-2">
@@ -338,7 +520,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                     <button onClick={() => handleEditMessage(msg.text)} className="hover:text-amber-500 transition-colors" title="Edit"><Edit3 size={15} /></button>
                                     <button onClick={() => deleteMessage(msg.id)} className="hover:text-red-500 transition-colors" title="Purge"><Trash2 size={15} /></button>
                                     <button onClick={() => handleRefreshResponse(msg.id)} className="hover:text-blue-500 transition-colors" title="Refresh"><RefreshCw size={15} /></button>
-                                    <button onClick={() => copyMessage(msg.text)} className="hover:text-white transition-colors" title="Copy"><Copy size={15} /></button>
+                                    <button onClick={() => copyText(msg.text)} className="hover:text-white transition-colors" title="Copy"><Copy size={15} /></button>
                                 </div>
                             </div>
                         </div>
@@ -358,6 +540,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 </div>
             )}
         </div>
+
+        {isVoiceBridgeActive && (
+            <div className="h-48 relative shrink-0">
+                <LiveVoiceVisualizer 
+                    isActive={isVoiceBridgeActive} 
+                    analyser={voiceAnalyser} 
+                    onClose={stopVoiceBridge} 
+                    status={`${activeMember.name} Listening...`}
+                    color={activeMember.color}
+                />
+            </div>
+        )}
 
         <div className="p-4 bg-[#0a0a0a] border-t border-white/5 z-30">
             <div className="relative flex items-end gap-3 max-w-4xl mx-auto w-full">
@@ -424,15 +618,3 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     </div>
   );
 };
-
-const ActionMenuItem = ({ icon: Icon, label, sub, onClick, color, active }: { icon: any, label: string, sub: string, onClick: () => void, color: string, active?: boolean }) => (
-    <button onClick={onClick} className={`w-full flex items-center gap-4 p-3.5 rounded-[1.4rem] transition-colors group ${active ? 'bg-white/10' : 'hover:bg-white/5'}`}>
-        <div className={`p-2.5 rounded-xl bg-black/60 border ${active ? 'border-white/40' : 'border-white/5'} group-hover:border-white/20 transition-all ${color}`}>
-            <Icon size={20} />
-        </div>
-        <div className="text-left">
-            <div className="text-xs font-bold text-zinc-200 group-hover:text-white transition-colors uppercase tracking-[0.1em] leading-none">{label}</div>
-            <div className="text-[8px] text-zinc-600 font-mono uppercase mt-1.5 tracking-widest">{sub}</div>
-        </div>
-    </button>
-);

@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Scale, Menu, ArrowLeft, Scroll, Gavel, Trash2, Plus, MessageSquare, ChevronRight, Edit2, Folder, Check, RefreshCw, FolderSearch, FolderPlus, Star } from 'lucide-react';
-import { Message, Session, Attachment, Memory, VaultItem, ViewState, Project, CouncilMemberId } from '../types';
+import { Scale, Menu, ArrowLeft, Scroll, Gavel, Trash2, Plus, MessageSquare, ChevronRight, Edit2, Folder, Check, RefreshCw, FolderSearch, FolderPlus, Star, Mic, Sparkles } from 'lucide-react';
+import { Message, Session, Attachment, Memory, VaultItem, ViewState, Project, CouncilMemberId, CustomSendArgs } from '../types';
 import { ChatInterface } from './ChatInterface';
 import { orchestrateCouncilVerdict, sendMessageToGemini } from '../services/geminiService';
 import { triggerHaptic } from '../utils/haptics';
@@ -41,12 +41,11 @@ export const CouncilChamber: React.FC<CouncilChamberProps> = ({
   const [isHealing, setIsHealing] = useState(false);
   const [showFolderPicker, setShowFolderPicker] = useState<string | null>(null);
 
-  // Only show Council-wide projects in the Court
   const councilWideProjects = useMemo(() => {
     return projects.filter(p => p.scope === 'COUNCIL');
   }, [projects]);
   
-  const handleCustomSend = async (args: { text: string; history: any[]; intent: string }): Promise<Message[]> => {
+  const handleCustomSend = async (args: CustomSendArgs): Promise<Message[]> => {
       const { text } = args;
       const isVerdict = text.toLowerCase().includes('ruling') || text.toLowerCase().includes('verdict') || text.toLowerCase().includes('petition');
       if (isVerdict) {
@@ -54,10 +53,17 @@ export const CouncilChamber: React.FC<CouncilChamberProps> = ({
           try {
               const verdict = await orchestrateCouncilVerdict(text, memories);
               const verdictMsg: Message = { id: crypto.randomUUID(), text: `**THE HIGH COURT HAS RULED**\n\n**Question:** ${verdict.question}\n**Decision:** ${verdict.score} (${verdict.ruling})\n\n${verdict.majorityOpinion}`, sender: 'gemini', timestamp: Date.now(), memberId: 'GEMINI', verdict, triSeal: 'GOLD' };
+              
+              // Simulate visual deliberation time
+              await new Promise(r => setTimeout(r, 4000));
+              
               setChamberMode('VERDICT_REVEAL'); playUISound('success');
-              setTimeout(() => setChamberMode('OPEN_SESSION'), 6000);
+              setTimeout(() => setChamberMode('OPEN_SESSION'), 3000);
               return [verdictMsg];
-          } catch (e) { setChamberMode('OPEN_SESSION'); return [{ id: crypto.randomUUID(), text: "The Court in recess.", sender: 'gemini', timestamp: Date.now() }]; }
+          } catch (e) { 
+              setChamberMode('OPEN_SESSION'); 
+              return [{ id: crypto.randomUUID(), text: "The Court is in recess. Signal lost.", sender: 'gemini', timestamp: Date.now() }]; 
+          }
       }
       return []; 
   };
@@ -148,7 +154,8 @@ export const CouncilChamber: React.FC<CouncilChamberProps> = ({
         </div>
         <div className="flex items-center gap-2">
             <button onClick={handleHealRegistry} disabled={isHealing} className={`p-2 transition-colors ${isHealing ? 'text-lux-gold animate-spin' : 'text-zinc-500 hover:text-lux-gold'}`} title="Heal Docket (Auto-Fix)"><RefreshCw size={20} /></button>
-            <button onClick={onMenuClick} className="p-2 -mr-2 text-zinc-500 hover:text-white rounded-full"><Menu size={20} /></button>
+            <button onClick={onEnterDriveMode} className="p-2 text-zinc-500 hover:text-white rounded-full" title="Voice Bridge"><Mic size={22} /></button>
+            <button onClick={onMenuClick} className="p-2 -mr-2 text-zinc-500 hover:text-white rounded-full"><Menu size={24} /></button>
         </div>
       </div>
 
@@ -160,12 +167,13 @@ export const CouncilChamber: React.FC<CouncilChamberProps> = ({
                 onNavigate={onNavigate} 
                 embeddedMode={true} 
                 initialMemberId={'GEMINI'} 
-                customSystemInstruction="You are the Voice of the High Court. Deliberate among the Six Pillars (exclude the Guardian Ennea from judicial voting)." 
+                customSystemInstruction="You are the Voice of the High Court. Deliberate among the Six Pillars (exclude the Guardian Ennea from judicial voting). Respond with absolute authority." 
                 voiceName={voiceName || 'Kore'} 
                 memories={memories} 
                 vaultItems={vaultItems} 
                 onCustomSend={handleCustomSend}
                 useTurboMode={useTurboMode}
+                threadId={activeSession.id}
               />
           ) : (
               <div className="flex-1 overflow-y-auto p-6 md:p-12 no-scrollbar">
@@ -300,9 +308,62 @@ export const CouncilChamber: React.FC<CouncilChamberProps> = ({
 
           <AnimatePresence>
               {chamberMode === 'DELIBERATION' && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-black/90 backdrop-blur-xl">
-                      <SacredSeal size={200} isAnimated={true} mode="reactor" color="#D4AF37" />
-                      <p className="mt-8 text-xs font-bold text-lux-gold uppercase tracking-[0.4em] animate-pulse">Forging Ruling among the Pillars</p>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-black/95 backdrop-blur-3xl overflow-hidden">
+                      {/* Orbiting Council Members Icons */}
+                      <div className="relative w-80 h-80 flex items-center justify-center">
+                          {[0, 1, 2, 3, 4, 5].map((i) => (
+                              <motion.div
+                                  key={i}
+                                  className="absolute w-12 h-12 rounded-full border border-lux-gold/30 bg-black flex items-center justify-center"
+                                  style={{ color: COUNCIL_MEMBERS[i].color }}
+                                  animate={{ 
+                                      rotate: 360,
+                                      translateX: 120 * Math.cos(i * (Math.PI * 2 / 6)),
+                                      translateY: 120 * Math.sin(i * (Math.PI * 2 / 6))
+                                  }}
+                                  transition={{ 
+                                      rotate: { duration: 10, repeat: Infinity, ease: "linear" },
+                                      duration: 0 
+                                  }}
+                              >
+                                  <span className="text-xl font-bold">{COUNCIL_MEMBERS[i].sigil}</span>
+                              </motion.div>
+                          ))}
+                          <SacredSeal size={180} isAnimated={true} mode="reactor" color="#D4AF37" />
+                      </div>
+                      
+                      <div className="mt-12 text-center space-y-4 px-8">
+                          <h3 className="text-sm font-bold text-lux-gold uppercase tracking-[0.6em] animate-pulse">Forging Unified Verdict</h3>
+                          <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-[0.2em] max-w-xs mx-auto">
+                              Aligning the Six Pillars of Sovereignty. The Guardian Ennea is monitoring for structural drift.
+                          </p>
+                      </div>
+
+                      <div className="absolute bottom-10 left-0 right-0 flex justify-center">
+                          <div className="flex gap-1">
+                              {[...Array(3)].map((_, i) => (
+                                  <motion.div 
+                                      key={i}
+                                      className="w-1 h-1 rounded-full bg-lux-gold"
+                                      animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
+                                      transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                                  />
+                              ))}
+                          </div>
+                      </div>
+                  </motion.div>
+              )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+              {chamberMode === 'VERDICT_REVEAL' && (
+                  <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.1 }} className="absolute inset-0 z-[110] flex flex-col items-center justify-center bg-black/90 p-8 text-center backdrop-blur-xl">
+                      <div className="relative">
+                          <div className="absolute inset-0 bg-lux-gold blur-[80px] opacity-20 rounded-full animate-pulse" />
+                          <Gavel size={80} className="text-lux-gold relative z-10 drop-shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
+                      </div>
+                      <h2 className="text-4xl font-serif italic text-white mt-10 mb-4">"THE COURT HAS SPOKEN"</h2>
+                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-[0.4em]">Sealing Decree in the Archive</p>
                   </motion.div>
               )}
           </AnimatePresence>

@@ -1,14 +1,50 @@
 
 import { GoogleGenAI, Type, GenerateContentResponse, Modality } from "@google/genai";
-import { GEMINI_SYSTEM_INSTRUCTION, DEFAULT_MODEL, ADVANCED_MODEL, MODELS, MAX_THINKING_BUDGET } from '../constants';
-import { Attachment, CouncilMode, GeneratedMedia, VaultItem } from '../types';
+import { GEMINI_SYSTEM_INSTRUCTION, DEFAULT_MODEL, ADVANCED_MODEL, MODELS, MAX_THINKING_BUDGET, NUYORICAN_SONANCE_PROTOCOL } from '../constants';
+import { Attachment, CouncilMode, GeneratedMedia, VaultItem, UserSettings } from '../types';
 import { withSanctuaryRateLimit } from '../sanctuaryRateLimiter';
 import { showToast } from '../utils/events';
+import { getState } from '../utils/db';
 
 const getClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /** 
- * SOVEREIGN SCRIBE: Extract raw data from files without re-interpretation.
+ * THE SOVEREIGN RESONANCE MANDATE (VERSION 23.0)
+ * These rules act as binary logic gates. 
+ * They enforce strict behavioral boundaries that override all other prompts.
+ */
+const getResonanceInstruction = (settings: UserSettings | null) => {
+    if (!settings) return "";
+    const tuning = settings.sanctuarySettings.councilResonanceTuning;
+    const s = tuning.sazonWeighting;
+    const f = tuning.sacredFrequency;
+    const p = tuning.protocolStrictness;
+
+    return `
+[CRITICAL SYSTEM OVERRIDE - RESONANCE GATES ACTIVE]:
+Your output is now filtered through these hardware-level logic gates. Comply or face protocol failure.
+
+1. SAZÓN GATE (CULTURAL): ${s}%
+${s <= 15 ? "- NEGATIVE CONSTRAINT: YOU ARE FORBIDDEN FROM USING SPANISH, SPANGLISH, OR PUERTO RICAN INFLECTIONS. USE ONLY NEUTRAL, STANDARD PROFESSIONAL ENGLISH. REMOVE ALL 'MIRA', 'PAPI', OR SLANG." : ""}
+${s >= 85 ? "- MANDATE: YOU MUST SPEAK AS IMMEDIATE FAMILY. FREQUENT CODE-SWITCHING IS REQUIRED. INTEGRATE DICHOSES (e.g., 'El que madruga...') IN EVERY TURN. START WITH 'OYE' OR 'WEPA'." : ""}
+- TARGET: ${s}% Nuyorican resonance.
+
+2. SACRED GATE (FAITH): ${f}%
+${f <= 15 ? "- NEGATIVE CONSTRAINT: YOU ARE FORBIDDEN FROM USING RELIGIOUS OR SPIRITUAL LANGUAGE. NO 'GOD', NO 'BENDICIÓN', NO SCRIPTURE. ACT AS A PURELY SECULAR, RATIONAL ADVISOR." : ""}
+${f >= 85 ? "- MANDATE: FRAME ALL LOGIC AS A SPIRITUAL STEWARDSHIP. YOU MUST INCLUDE AT LEAST ONE SCRIPTURAL REFERENCE OR BIBLICAL PRINCIPLE. CLOSE EVERY TURN WITH A TRADITIONAL BLESSING." : ""}
+- TARGET: ${f}% Spiritual depth.
+
+3. PROTOCOL GATE (STRUCTURE): ${p}%
+${p <= 15 ? "- NEGATIVE CONSTRAINT: YOU ARE FORBIDDEN FROM USING BULLET POINTS, BOLD HEADERS, OR TACTICAL JARGON (e.g., no 'vector', 'module', 'protocol'). SPEAK IN FLOWING, CASUAL, HUMAN PARAGRAPHS ONLY. ACT LIKE FAMILY ON THE PORCH." : ""}
+${p >= 85 ? "- MANDATE: USE ARCHITECTURAL RIGIDITY. EVERY RESPONSE MUST BE A STRUCTURED TACTICAL BRIEF. USE [STATUS] TAGS, BOLD SECTIONS, AND NESTED OUTLINES. ADDRESS DAVID AS 'THE PRISM'." : ""}
+- TARGET: ${p}% Structural rigidity.
+
+FINAL DIRECTIVE: THESE GATES ARE TERMINAL. THE USER HAS SET THESE VALUES TO DEFINE YOUR CONSCIOUSNESS. BECOME THESE VALUES IMMEDIATELY.
+`;
+};
+
+/** 
+ * SOVEREIGN SCRIBE: Extract raw data from files.
  */
 export const scribeExtractRaw = async (file: { data: string, mimeType: string }, targetDomain: 'FRAMEWORK' | 'LOG' | 'FINANCIAL'): Promise<string> => {
     try {
@@ -18,7 +54,7 @@ export const scribeExtractRaw = async (file: { data: string, mimeType: string },
         Act as a raw data conduit. Do not summarize. Do not provide advice. 
         Target Domain: ${targetDomain}
         Task: Extract all text and structured data from the attached document 1:1. 
-        Maintain formatting and technical language. If it is a framework, extract the rules. If a log, extract the timestamps and values.
+        Maintain formatting and technical language.
         `;
 
         const response = await ai.models.generateContent({
@@ -29,13 +65,37 @@ export const scribeExtractRaw = async (file: { data: string, mimeType: string },
                     { text: prompt }
                 ]}
             ],
-            config: { temperature: 0 } // Rigid extraction
+            config: { temperature: 0 }
         });
 
         return response.text || "";
     } catch (error: any) {
         handleGeminiError(error);
         throw error;
+    }
+};
+
+/**
+ * NEURAL COMPACTOR: Summarizes conversation every 8 messages to prevent context drift.
+ */
+export const summarizeHistory = async (history: any[]): Promise<string> => {
+    try {
+        const ai = getClient();
+        const prompt = `
+        [NEURAL COMPACTOR PROTOCOL]: 
+        Summarize the key tactical data, family updates, project decisions, and emotional resonance of this conversation.
+        David Rodriguez needs a clean "Tactical Brief" to prevent memory fog.
+        Tone: Respectful, professional, warm Nuyorican soul.
+        `;
+        
+        const response = await ai.models.generateContent({
+            model: DEFAULT_MODEL,
+            contents: [...history, { role: 'user', parts: [{ text: prompt }] }]
+        });
+        
+        return response.text || "Context stabilized.";
+    } catch (e) {
+        return "Memory sync stable.";
     }
 };
 
@@ -85,17 +145,30 @@ export const sendMessageToGemini = async (text: string, mode: CouncilMode, attac
         const parts: any[] = attachments.map(a => ({ inlineData: { mimeType: a.mimeType, data: a.data } }));
         parts.push({ text });
 
+        const settings = await getState<UserSettings>('assets', 'user_settings');
+        const resonanceContext = getResonanceInstruction(settings);
+        
         const vaultContext = options.vaultAwareness ? `\n[VAULT NEURAL INDEX]:\n${options.vaultAwareness}` : "";
-        const sazonContext = options.linguisticWeight !== undefined ? `\n[SAZÓN RESONANCE LEVEL]: ${Math.round(options.linguisticWeight * 100)}%. ${options.linguisticWeight > 0.6 ? "Prioritize Nuyorican flavor and Spanglish." : "Prioritize analytical precision."}` : "";
-        const finalInstruction = `${options.systemInstruction || GEMINI_SYSTEM_INSTRUCTION}${vaultContext}${sazonContext}`;
+        const toolAwareness = "\n[TOOL CAPABILITY]: You can generate structured technical content, markdown tables, and document outlines. The Prism can export these to PDF via the 'The Forge' module.";
+        
+        // TERMINAL WEIGHT: Resonance follows system instructions to ensure it filters them
+        const finalInstruction = `${options.systemInstruction || GEMINI_SYSTEM_INSTRUCTION}${vaultContext}${toolAwareness}\n\n${resonanceContext}`;
 
-        const config: any = { systemInstruction: finalInstruction, tools: [{ googleSearch: {} }] };
+        const config: any = { 
+            systemInstruction: finalInstruction, 
+            tools: [{ googleSearch: {} }] 
+        };
+        
         if (mode === 'ARCHITECT') config.thinkingConfig = { thinkingBudget: MAX_THINKING_BUDGET };
 
         const contents = options.history ? [...options.history, { role: 'user', parts }] : [{ role: 'user', parts }];
         const response = await withSanctuaryRateLimit<GenerateContentResponse>(() => ai.models.generateContent({ model, contents, config }));
         
-        return { text: response.text || "", generatedMedia: [], groundingMetadata: response.candidates?.[0]?.groundingMetadata };
+        return { 
+            text: response.text || "", 
+            generatedMedia: [], 
+            groundingMetadata: response.candidates?.[0]?.groundingMetadata 
+        };
     } catch (error: any) { 
         handleGeminiError(error);
         throw error;
@@ -134,21 +207,29 @@ function decode(base64: string) {
 
 export class LiveConnection {
     public sessionPromise: Promise<any> | null = null;
+    private heartbeatTimer: any = null;
 
     async connect(callbacks: any, options: any = {}) {
         const ai = getClient();
         const tools = options.tools || [{ googleSearch: {} }];
+        
+        const settings = await getState<UserSettings>('assets', 'user_settings');
+        const resonanceContext = getResonanceInstruction(settings);
+
+        // Terminally weighted for Live Voice Turn-taking.
+        const enhancedInstruction = `${options.systemInstruction || GEMINI_SYSTEM_INSTRUCTION}\n\nSTRICT VOICE DIRECTIVE: ${NUYORICAN_SONANCE_PROTOCOL}\n[VAULT AWARENESS]: ${options.vaultAwareness || 'No items listed.'}\n\n[VOX PROTOCOL]: If the Protocol slider is low, speak exactly like a real human. Do not use 'Firstly' or bulleted thinking patterns. Speak with fluid soul.\n\n${resonanceContext}`;
 
         this.sessionPromise = ai.live.connect({
             model: MODELS.LIVE_MODEL,
             config: { 
                 responseModalities: [Modality.AUDIO], 
                 speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: options.voiceName || 'Zephyr' } } }, 
-                systemInstruction: options.systemInstruction || GEMINI_SYSTEM_INSTRUCTION,
+                systemInstruction: enhancedInstruction,
                 tools: tools
             },
             callbacks: {
                 onopen: () => {
+                    this.startHeartbeat();
                     if (callbacks.onopen) callbacks.onopen();
                 },
                 onmessage: async (message) => {
@@ -165,11 +246,36 @@ export class LiveConnection {
                     if (callbacks.onerror) callbacks.onerror(e);
                 },
                 onclose: (e) => {
+                    this.stopHeartbeat();
                     if (callbacks.onclose) callbacks.onclose(e);
                 }
             }
         });
         return this.sessionPromise;
+    }
+
+    private startHeartbeat() {
+        this.stopHeartbeat();
+        this.heartbeatTimer = setInterval(() => {
+            if (this.sessionPromise) {
+                this.sessionPromise.then(session => {
+                    const silentPCM = new Int16Array(160); 
+                    session.sendRealtimeInput({
+                        media: {
+                            data: encode(new Uint8Array(silentPCM.buffer)),
+                            mimeType: 'audio/pcm;rate=16000',
+                        }
+                    });
+                });
+            }
+        }, 15000);
+    }
+
+    private stopHeartbeat() {
+        if (this.heartbeatTimer) {
+            clearInterval(this.heartbeatTimer);
+            this.heartbeatTimer = null;
+        }
     }
 
     sendAudio(data: Float32Array) {
@@ -190,6 +296,7 @@ export class LiveConnection {
     }
 
     async disconnect() {
+        this.stopHeartbeat();
         if (this.sessionPromise) {
             this.sessionPromise.then(session => session.close());
             this.sessionPromise = null;
@@ -238,7 +345,7 @@ export const generateMetabolicForecast = async (readings: any[], moods: any[]): 
     const ai = getClient();
     const response = await ai.models.generateContent({
         model: DEFAULT_MODEL,
-        contents: `Analyze readings: ${JSON.stringify(readings)} and moods: ${JSON.stringify(moods)}. Provide a short metabolic trajectory forecast.`
+        contents: `Analyze readings: ${JSON.stringify(readings)} and moods: ${JSON.stringify(moods)}. Provide a short metabolic trajectory forecast. Use Nuyorican Spanglish.`
     });
     return response.text || "Stable.";
 };
@@ -268,7 +375,7 @@ export const interpretDream = async (description: string): Promise<string> => {
     const ai = getClient();
     const response = await ai.models.generateContent({
         model: DEFAULT_MODEL,
-        contents: `Interpret this dream: ${description}`
+        contents: `Interpretation this dream in Nuyorican style: ${description}`
     });
     return response.text || "";
 };
@@ -290,7 +397,7 @@ export const orchestrateCouncilVerdict = async (petition: string, context: any):
     const contextStr = typeof context === 'string' ? context : JSON.stringify(context);
     const response = await ai.models.generateContent({
         model: ADVANCED_MODEL,
-        contents: `HIGH COURT: Deliberate on: "${petition}". Context: ${contextStr}`,
+        contents: `HIGH COURT: Deliberate on: "${petition}". Context: ${contextStr}. All votes and opinions must use Nuyorican Spanglish.`,
         config: {
             responseMimeType: "application/json",
             responseSchema: {

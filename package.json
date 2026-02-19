@@ -1,25 +1,33 @@
+
 {
-  "name": "complete-council-of-codex",
+  "name": "council-of-codex-sanctuary",
+  "version": "24.0.0",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "description": "The Sovereign Sanctuary for David Rodriguez.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cap:sync": "npx cap sync",
+    "cap:open:android": "npx cap open android",
+    "forge:apk": "npm run build && npm run cap:sync && npm run cap:open:android"
   },
   "dependencies": {
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "framer-motion": "^11.0.0",
-    "lucide-react": "^0.469.0",
+    "@capacitor/android": "^5.7.0",
+    "@capacitor/core": "^5.7.0",
     "@google/genai": "^1.30.0",
-    "jspdf": "^2.5.1"
+    "framer-motion": "^11.0.0",
+    "jspdf": "^2.5.1",
+    "lucide-react": "^0.469.0",
+    "pako": "^2.1.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "@capacitor/cli": "^5.7.0",
+    "vite": "^5.0.0"
+  },
+  "overrides": {
+    "bouncycastle": "<=1.77"
   }
 }
