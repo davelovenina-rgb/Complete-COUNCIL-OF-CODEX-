@@ -10,14 +10,14 @@ if (!rootElement) {
   throw new Error("[Critical] Sanctuary Core failed: Root element missing.");
 }
 
-console.log("[Sanctuary] Initializing Core v24.0.0 • Sovereign Bridge Protocol...");
+console.log("[Sanctuary] Initializing Core v26.0.0 • Core Hardened Protocol...");
 
 // --- INITIALIZE THE HISTORIAN ---
 UniversalBuildMonitor.initialize({
     appName: "COUNCIL_OF_CODEX",
     initialBuildInfo: {
         environment: 'production',
-        version: '24.0.0'
+        version: '26.0.0'
     }
 });
 

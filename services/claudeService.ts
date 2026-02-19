@@ -2,7 +2,7 @@
 import { getState } from '../utils/db';
 import { ConnectorConfig } from '../types';
 
-const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+const CLAUDE_MODEL = 'claude-3-5-sonnet-latest';
 
 export const sendMessageToClaude = async (
     text: string, 
@@ -32,7 +32,7 @@ export const sendMessageToClaude = async (
                 'Content-Type': 'application/json',
                 'x-api-key': config.apiKey,
                 'anthropic-version': '2023-06-01',
-                // CRITICAL FIX: The old dangerously-allow-browser is deprecated. Use the specific Anthropic header.
+                // MANDATORY FIX for Browser Access
                 'anthropic-dangerous-direct-browser-access': 'true'
             },
             body: JSON.stringify({
